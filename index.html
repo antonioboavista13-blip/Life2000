@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10131b">
+<title>LIFE 2000</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10131b;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+header{padding:25px 20px;background:#191f2b;border-bottom:1px solid #303747}
+h1{margin:0;color:#d9b77c;font-size:27px;letter-spacing:2px}
+small{color:#a7adba}
+main{padding:20px;max-width:850px;margin:auto;padding-bottom:100px}
+h2{font-size:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card,.panel{background:#1d2533;border:1px solid #30394a;border-radius:15px;padding:18px}
+.card{cursor:pointer;min-height:115px}
+.card b{display:block;margin:12px 0 5px;color:#e3c18a}
+.card span{font-size:12px;color:#abb4c4}
+.panel{margin-top:18px}
+button{background:#c6a56d;color:#111827;border:0;border-radius:9px;padding:12px 15px;font-weight:700;cursor:pointer}
+input,textarea,select{width:100%;background:#101722;border:1px solid #475064;color:white;padding:12px;border-radius:9px;margin:7px 0;font:inherit}
+textarea{min-height:90px}
+.item{border-bottom:1px solid #394253;padding:12px 0;overflow-wrap:anywhere}
+.item button{background:#353f50;color:white;padding:6px 10px;margin-top:7px}
+.back{background:#313a4c;color:white;margin-bottom:12px}
+.hidden{display:none}
+nav{position:fixed;bottom:0;background:#191f2b;width:100%;display:flex;justify-content:space-around;padding:13px;border-top:1px solid #303747}
+nav button{background:transparent;color:#d9b77c;padding:8px}
+</style>
+</head>
+<body>
+<header>
+<h1>LIFE 2000</h1>
+<small>O teu centro de controlo pessoal</small>
+</header>
+<main>
+<section id="home">
+<h2>O meu espaço</h2>
+<div class="grid">
+<div class="card" onclick="show('agenda')">📅<b>Agenda</b><span>Tarefas e compromissos</span></div>
+<div class="card" onclick="show('alunos')">👥<b>Alunos</b><span>Fichas individuais</span></div>
+<div class="card" onclick="show('treinos')">🥊<b>Treinos</b><span>Planos e exercícios</span></div>
+<div class="card" onclick="show('nutricao')">🥗<b>Nutrição</b><span>Planos alimentares</span></div>
+<div class="card" onclick="show('notas')">📝<b>Notas</b><span>Ideias e organização</span></div>
+<div class="card" onclick="show('assistente')">✨<b>Assistente</b><span>Voz e texto — em preparação</span></div>
+</div>
+</section>
+<section id="editor" class="hidden">
+<button class="back" onclick="show('home')">← Voltar</button>
+<h2 id="sectionTitle"></h2>
+<div id="formArea" class="panel"></div>
+<div id="items" class="panel"></div>
+</section>
+</main>
+<nav>
+<button onclick="show('home')">⌂ Início</button>
+<button onclick="show('agenda')">▦ Agenda</button>
+<button onclick="show('alunos')">♙ Alunos</button>
+<button onclick="show('notas')">✎ Notas</button>
+</nav>
+<script>
+const names={
+agenda:"Agenda",alunos:"Alunos",treinos:"Treinos",
+nutricao:"Nutrição",notas:"Notas",assistente:"Assistente IA"
+};
+let current="home";
+function getData(k){
+try{return JSON.parse(localStorage.getItem("life2000_"+k))||[]}
+catch{return []}
+}
+function saveData(k,v){
+localStorage.setItem("life2000_"+k,JSON.stringify(v))
+}
+function show(k){
+current=k;
+document.getElementById("home").classList.toggle("hidden",k!=="home");
+document.getElementById("editor").classList.toggle("hidden",k==="home");
+if(k==="home")return;
+document.getElementById("sectionTitle").textContent=names[k];
+let area=document.getElementById("formArea");
+if(k==="assistente"){
+area.innerHTML="<p>O assistente de voz e inteligência artificial será integrado numa próxima versão.</p>";
+document.getElementById("items").innerHTML="";
+return;
+}
+let fields=k==="alunos"?
+'<input id="title" placeholder="Nome do aluno"><textarea id="detail" placeholder="Objetivos, informações e observações"></textarea>':
+k==="agenda"?
+'<input id="title" placeholder="Compromisso ou tarefa"><input id="date" type="datetime-local"><textarea id="detail" placeholder="Detalhes"></textarea>':
+'<input id="title" placeholder="Título"><textarea id="detail" placeholder="Escreve aqui o conteúdo"></textarea>';
+area.innerHTML=fields+'<button onclick="addItem()">Guardar</button>';
+render();
+}
+function addItem(){
+let title=document.getElementById("title").value.trim();
+let detail=document.getElementById("detail").value.trim();
+let date=document.getElementById("date")?.value||"";
+if(!title){alert("Preenche o título.");return}
+let data=getData(current);
+data.unshift({title,detail,date});
+try{saveData(current,data)}
+catch{alert("Não foi possível guardar. Verifica o espaço disponível.");return}
+show(current);
+}
+function removeItem(i){
+if(!confirm("Eliminar este registo?"))return;
+let data=getData(current);
+data.splice(i,1);
+saveData(current,data);
+render();
+}
+function render(){
+let data=getData(current);
+let container=document.getElementById("items");
+container.replaceChildren();
+if(!data.length){container.textContent="Ainda não existem registos.";return}
+data.forEach((x,i)=>{
+let div=document.createElement("div");
+div.className="item";
+let title=document.createElement("b");
+title.textContent=x.title;
+div.appendChild(title);
+if(x.date){
+let p=document.createElement("p");
+p.textContent=x.date.replace("T"," ");
+div.appendChild(p);
+}
+if(x.detail){
+let p=document.createElement("p");
+p.style.whiteSpace="pre-wrap";
+p.textContent=x.detail;
+div.appendChild(p);
+}
+let btn=document.createElement("button");
+btn.textContent="Eliminar";
+btn.onclick=()=>removeItem(i);
+div.appendChild(btn);
+container.appendChild(div);
+});
+}
+</script>
+</body>
+</html>
