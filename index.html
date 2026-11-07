@@ -896,6 +896,118 @@ if (subtitle) {
 }
 
 })();
+  
+/* LIFE 2000 v4.1 — VISUALIZAÇÃO DOS PLANOS */
+(function () {
+"use strict";
+
+const previousProfile = profile;
+
+function addValue(parent, label, value) {
+  if (value === undefined || value === null ||
+      String(value).trim() === "") return;
+
+  const line = el("div");
+  line.style.margin = "5px 0";
+  line.style.fontSize = "14px";
+
+  const heading = el("strong", label + ": ");
+  heading.style.color = "#e3c18a";
+
+  line.appendChild(heading);
+  line.appendChild(document.createTextNode(String(value)));
+  parent.appendChild(line);
+}
+
+function displayPlan(plan, type) {
+  const box = el("div");
+  box.className = "subpanel";
+  box.style.marginTop = "12px";
+
+  box.appendChild(el("h3", plan.titulo || "Plano"));
+
+  if (!plan.estruturado || !Array.isArray(plan.blocos)) {
+    const p = el("p", plan.conteudo || "Sem conteúdo.");
+    box.appendChild(p);
+    return box;
+  }
+
+  plan.blocos.forEach(block => {
+    const section = el("div");
+    section.className = "subpanel";
+
+    const heading = el("h3", block.nome || "Bloco");
+    section.appendChild(heading);
+
+    (block.itens || []).forEach(item => {
+      const food = el("div");
+      food.className = "item";
+
+      food.appendChild(el("b", item.nome || "Item"));
+
+      if (type === "planosAlimentares") {
+        addValue(food, "Quantidade", item.quantidade);
+        addValue(food, "Calorias", item.calorias !== "" &&
+          item.calorias != null ? item.calorias + " kcal" : "");
+        addValue(food, "Proteínas", item.proteinas !== "" &&
+          item.proteinas != null ? item.proteinas + " g" : "");
+        addValue(food, "Hidratos", item.hidratos !== "" &&
+          item.hidratos != null ? item.hidratos + " g" : "");
+        addValue(food, "Gorduras", item.gorduras !== "" &&
+          item.gorduras != null ? item.gorduras + " g" : "");
+      } else {
+        addValue(food, "Séries", item.series);
+        addValue(food, "Repetições / duração", item.reps);
+        addValue(food, "Carga", item.carga);
+        addValue(food, "Descanso", item.descanso);
+      }
+
+      addValue(food, "Observações", item.obs);
+      section.appendChild(food);
+    });
+
+    box.appendChild(section);
+  });
+
+  return box;
+}
+
+profile = function (id) {
+  previousProfile(id);
+
+  const student = getData("alunos").find(s => s.id === id);
+  if (!student) return;
+
+  const root = $("items");
+  const sections = [
+    ["planosTreino", "🥊 Planos de treino"],
+    ["planosAlimentares", "🥗 Planos alimentares"]
+  ];
+
+  sections.forEach(([type, heading]) => {
+    const plans = student[type] || [];
+    if (!plans.length) return;
+
+    const container = el("div");
+    container.className = "panel";
+
+    container.appendChild(el("h3", heading + " — Vista detalhada"));
+
+    plans.forEach(plan => {
+      container.appendChild(displayPlan(plan, type));
+    });
+
+    root.appendChild(container);
+  });
+};
+
+const subtitle = document.querySelector("header small");
+if (subtitle) {
+  subtitle.textContent = "O teu centro de controlo pessoal · v4.1";
+}
+
+})();
+
 
 </script>
 </body>
