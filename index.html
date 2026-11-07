@@ -2750,6 +2750,338 @@ if (subtitle) {
 
 })();
 
+/* LIFE 2000 v4.7 — BIBLIOTECA DE EXERCÍCIOS */
+(function () {
+"use strict";
+
+const KEY = "bibliotecaExercicios";
+
+const catalogo = {
+  "Peito": [
+    "Supino com barra", "Supino com halteres",
+    "Supino inclinado", "Flexões", "Crucifixo",
+    "Chest press", "Fundos"
+  ],
+  "Costas": [
+    "Elevações na barra", "Puxada na polia",
+    "Remada com barra", "Remada com halteres",
+    "Remada baixa", "Pullover"
+  ],
+  "Pernas": [
+    "Agachamento", "Agachamento frontal",
+    "Leg press", "Peso morto", "Peso morto romeno",
+    "Afundos", "Extensão de pernas",
+    "Flexão de pernas", "Elevação de gémeos"
+  ],
+  "Ombros": [
+    "Press militar", "Elevações laterais",
+    "Elevações frontais", "Face pull",
+    "Arnold press"
+  ],
+  "Braços": [
+    "Curl bíceps", "Curl martelo",
+    "Tríceps na polia", "Tríceps francês",
+    "Fundos para tríceps"
+  ],
+  "Core": [
+    "Prancha", "Prancha lateral", "Crunch",
+    "Elevação de pernas", "Russian twist",
+    "Ab wheel", "Dead bug", "Pallof press"
+  ],
+  "Boxe": [
+    "Shadow boxing", "Saco pesado",
+    "Manoplas", "Sparring", "Saco de velocidade",
+    "Defesa e esquivas", "Deslocamentos",
+    "Combinações técnicas", "Trabalho de reação"
+  ],
+  "Força explosiva": [
+    "Landmine punch", "Battle ropes",
+    "Medicine ball chest throw",
+    "Medicine ball rotational throw",
+    "Medicine ball slam", "Push press",
+    "Jump squat", "Peso morto explosivo",
+    "Kettlebell swing"
+  ],
+  "Pliometria": [
+    "Box jump", "Depth jump",
+    "Saltos laterais", "Broad jump",
+    "Saltos unilaterais", "Burpee jump"
+  ],
+  "Cardio e resistência": [
+    "Corrida contínua", "Sprints",
+    "Intervalos de corrida", "Bicicleta",
+    "Remo", "Assault bike", "Saltar à corda",
+    "Shuttle runs"
+  ],
+  "Funcional": [
+    "Burpees", "Mountain climbers",
+    "Thrusters", "Farmer walk",
+    "Wall ball", "Bear crawl",
+    "Sled push", "Sled pull"
+  ],
+  "Mobilidade e recuperação": [
+    "Mobilidade da anca", "Mobilidade torácica",
+    "Mobilidade dos ombros", "Alongamentos",
+    "Rotação cervical controlada",
+    "Mobilidade dos tornozelos"
+  ]
+};
+
+function getExercises() {
+  return getData(KEY);
+}
+
+function saveExercises(data) {
+  return saveData(KEY, data);
+}
+
+function install() {
+  const data = getExercises();
+  const known = new Set(
+    data.map(x => x.nome.toLowerCase())
+  );
+
+  Object.entries(catalogo).forEach(([categoria, nomes]) => {
+    nomes.forEach(nome => {
+      if (known.has(nome.toLowerCase())) return;
+      data.push({id:uid(),nome,categoria});
+      known.add(nome.toLowerCase());
+    });
+  });
+
+  saveExercises(data);
+}
+
+function selector(parent, options) {
+  const s = el("select");
+  options.forEach(value => {
+    const o = el("option",value);
+    o.value = value;
+    s.appendChild(o);
+  });
+  parent.appendChild(s);
+  return s;
+}
+
+function library() {
+  clear();
+  const a = $("formArea");
+  const list = $("items");
+
+  a.appendChild(el("h3","🥊 Biblioteca de exercícios"));
+  btn(a,"← Voltar aos modelos",()=>models("modelosTreino"),
+      "secondary");
+  btn(a,"+ Novo exercício",()=>editExercise());
+
+  const search = field(a,"Pesquisar exercício");
+
+  function render() {
+    list.replaceChildren();
+    const q = search.value.toLowerCase();
+    const data = getExercises().filter(x =>
+      x.nome.toLowerCase().includes(q)
+    );
+
+    const categories = [...new Set(
+      data.map(x => x.categoria)
+    )].sort((a,b)=>a.localeCompare(b,"pt"));
+
+    categories.forEach(cat => {
+      const details = el("details");
+      details.open = !!q;
+      const heading = el("summary",cat);
+      heading.style.color = "#e3c18a";
+      heading.style.padding = "12px";
+      details.appendChild(heading);
+
+      data.filter(x=>x.categoria===cat).forEach(x=>{
+        const item = el("div");
+        item.className = "item";
+        item.appendChild(el("b",x.nome));
+        const ac = actions(item);
+        btn(ac,"Editar",()=>editExercise(x.id),"secondary");
+        btn(ac,"Eliminar",()=>{
+          if(!confirm("Eliminar exercício?"))return;
+          if(saveExercises(getExercises().filter(
+            z=>z.id!==x.id
+          )))render();
+        },"danger");
+        details.appendChild(item);
+      });
+      list.appendChild(details);
+    });
+
+    if(!data.length) {
+      list.textContent="Nenhum exercício encontrado.";
+    }
+  }
+
+  search.oninput=render;
+  render();
+}
+
+function editExercise(id=null) {
+  clear();
+  const a=$("formArea");
+  const x=getExercises().find(z=>z.id===id)||{};
+
+  a.appendChild(el("h3",
+    id?"Editar exercício":"Novo exercício"));
+
+  const name=field(a,"Nome do exercício",x.nome||"");
+  a.appendChild(el("label","Categoria"));
+
+  const categories=[
+    ...new Set([...Object.keys(catalogo),
+      ...getExercises().map(z=>z.categoria)])
+  ];
+
+  const cat=selector(a,categories);
+  if(x.categoria)cat.value=x.categoria;
+
+  const ac=actions(a);
+  btn(ac,"Guardar",()=>{
+    const nome=name.value.trim();
+    if(!nome)return alert("Indica o nome.");
+    const data=getExercises();
+    const obj={id:id||uid(),nome,categoria:cat.value};
+    const i=data.findIndex(z=>z.id===id);
+    if(i>=0)data[i]=obj;
+    else data.push(obj);
+    if(saveExercises(data))library();
+  });
+  btn(ac,"Cancelar",library,"secondary");
+}
+
+function addPickers() {
+  const area=$("formArea");
+  if(!area)return;
+
+  const buttons=[...area.querySelectorAll("button")]
+    .filter(b=>b.textContent.trim()==="+ Exercício" ||
+               b.textContent.trim()==="+ Item");
+
+  buttons.forEach((addButton,index)=>{
+    const box=addButton.parentElement;
+    if(!box || box.querySelector(".life47picker"))return;
+
+    const panel=el("div");
+    panel.className="subpanel life47picker";
+    panel.appendChild(el("h3","Escolher exercício"));
+
+    const category=selector(panel,[
+      ...new Set(getExercises().map(x=>x.categoria))
+    ]);
+    const exercise=el("select");
+    panel.appendChild(exercise);
+
+    function update() {
+      exercise.replaceChildren();
+      getExercises().filter(x=>x.categoria===category.value)
+        .forEach(x=>{
+          const o=el("option",x.nome);
+          o.value=x.id;
+          exercise.appendChild(o);
+        });
+    }
+    category.onchange=update;
+    update();
+
+    const series=field(panel,"Séries","3","text");
+    const reps=field(panel,"Repetições / duração","10","text");
+    const carga=field(panel,"Carga (opcional)","","text");
+    const descanso=field(panel,"Descanso","60 s","text");
+
+    btn(panel,"➕ Adicionar exercício",()=>{
+      const x=getExercises().find(z=>z.id===exercise.value);
+      if(!x)return alert("Seleciona um exercício.");
+
+      const allButtons=[...area.querySelectorAll("button")]
+        .filter(b=>b.textContent.trim()===addButton.textContent.trim());
+
+      const position=allButtons.indexOf(addButton);
+      if(position<0)return;
+
+      addButton.click();
+
+      const updated=[...area.querySelectorAll("button")]
+        .filter(b=>b.textContent.trim()===addButton.textContent.trim());
+
+      const meal=updated[position]?.parentElement;
+      if(!meal)return;
+
+      const panels=[...meal.children].filter(n=>
+        n.classList?.contains("subpanel") &&
+        !n.classList.contains("life47picker")
+      );
+      const last=panels[panels.length-1];
+      if(!last)return;
+
+      const inputs=last.querySelectorAll("input");
+      if(inputs.length<6)return;
+
+      [x.nome,series.value,reps.value,carga.value,
+       descanso.value,""].forEach((v,i)=>{
+        inputs[i].value=v;
+      });
+    });
+
+    box.insertBefore(panel,addButton);
+  });
+}
+
+const previousShow=show;
+show=function(k){
+  previousShow(k);
+  if(k==="treinos"){
+    const bar=el("div");
+    bar.className="subpanel";
+    btn(bar,"🥊 Biblioteca de exercícios",library);
+    $("formArea").prepend(bar);
+  }
+};
+
+const previousPlan=planForm;
+planForm=function(id,type,pid=null,template=null){
+  previousPlan(id,type,pid,template);
+  if(type==="planosTreino")addPickers();
+};
+
+const previousModel=modelForm;
+modelForm=function(key,id=null){
+  previousModel(key,id);
+  if(key==="modelosTreino")addPickers();
+};
+
+let pending=false;
+new MutationObserver(()=>{
+  if(pending)return;
+  pending=true;
+  requestAnimationFrame(()=>{
+    pending=false;
+    if($("formArea").querySelector(
+      'button'
+    )) {
+      const hasPicker=$("formArea").querySelector(
+        ".life47picker"
+      );
+      const hasAdd=[...$("formArea").querySelectorAll("button")]
+        .some(b=>b.textContent.trim()==="+ Exercício" ||
+                 b.textContent.trim()==="+ Item");
+      if(hasAdd || hasPicker)addPickers();
+    }
+  });
+}).observe($("formArea"),{childList:true,subtree:true});
+
+if(!keys.includes(KEY))keys.push(KEY);
+install();
+
+const subtitle=document.querySelector("header small");
+if(subtitle)subtitle.textContent=
+  "O teu centro de controlo pessoal · v4.7";
+
+})();
+
 
 </script>
 </body>
