@@ -550,6 +550,353 @@ show("home");
 a.appendChild(el("p","Não introduzas dados pessoais reais de alunos antes de implementarmos autenticação e armazenamento seguro."));
 }
 stats();
+  
+/* LIFE 2000 v4.0 — PLANOS ALIMENTARES */
+(function () {
+"use strict";
+
+const originalPlanForm = planForm;
+const originalModelForm = modelForm;
+const originalProfile = profile;
+
+const foodFields = [
+  ["nome", "Alimento", "text"],
+  ["quantidade", "Quantidade (ex.: 150 g)", "text"],
+  ["calorias", "Calorias (kcal)", "number"],
+  ["proteinas", "Proteínas (g)", "number"],
+  ["hidratos", "Hidratos (g)", "number"],
+  ["gorduras", "Gorduras (g)", "number"],
+  ["obs", "Observações", "text"]
+];
+
+const mealsDefault = [
+  "Pequeno-almoço",
+  "Meio da manhã",
+  "Almoço",
+  "Lanche",
+  "Jantar",
+  "Ceia"
+];
+
+function numberValue(v) {
+  const n = Number(String(v ?? "0").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function totals(blocks) {
+  const result = {
+    calorias: 0,
+    proteinas: 0,
+    hidratos: 0,
+    gorduras: 0
+  };
+  (blocks || []).forEach(b => {
+    (b.itens || []).forEach(item => {
+      Object.keys(result).forEach(k => {
+        result[k] += numberValue(item[k]);
+      });
+    });
+  });
+  return result;
+}
+
+function totalText(t) {
+  const fmt = n => Math.round(n * 10) / 10;
+  return (
+    fmt(t.calorias) + " kcal · " +
+    fmt(t.proteinas) + " g proteína · " +
+    fmt(t.hidratos) + " g hidratos · " +
+    fmt(t.gorduras) + " g gordura"
+  );
+}
+
+function nutritionEditor(studentId = null, planId = null, model = null) {
+  clear();
+
+  const isTemplate = studentId === null;
+  const key = isTemplate ? "modelosAlimentares" : "alunos";
+  const all = getData(key);
+  const student = isTemplate ? null : all.find(s => s.id === studentId);
+
+  if (!isTemplate && !student) {
+    students();
+    return;
+  }
+
+  const collection = isTemplate
+    ? all
+    : (student.planosAlimentares || []);
+
+  const existing = model ||
+    collection.find(p => p.id === planId) || {};
+
+  const a = $("formArea");
+  const list = $("items");
+
+  a.appendChild(el("h3",
+    planId ? "Editar plano alimentar" :
+    isTemplate ? "Novo modelo alimentar" :
+    "Novo plano alimentar"
+  ));
+
+  const title = field(a, "Nome do plano", existing.titulo || "");
+  const description = memo(a, "Descrição / orientações",
+    existing.conteudo || "");
+
+  let blocks = Array.isArray(existing.blocos)
+    ? JSON.parse(JSON.stringify(existing.blocos))
+    : [];
+
+  if (!blocks.length) {
+    blocks = mealsDefault.map(nome => ({
+      nome,
+      itens: []
+    }));
+  }
+
+  const workspace = el("div");
+  a.appendChild(workspace);
+
+  const summary = el("div");
+  summary.className = "subpanel";
+  list.appendChild(summary);
+
+  let views = [];
+
+  function sync() {
+    views.forEach((v, i) => {
+      if (!blocks[i]) return;
+      blocks[i].nome = v.name.value.trim();
+      blocks[i].itens = v.items.map(fields => {
+        const item = {};
+        Object.entries(fields).forEach(([k, input]) => {
+          item[k] = input.value.trim();
+        });
+        return item;
+      });
+    });
+  }
+
+  function updateSummary() {
+    sync();
+    summary.replaceChildren();
+    summary.appendChild(el("h3", "Totais diários"));
+    summary.appendChild(el("p", totalText(totals(blocks))));
+    summary.appendChild(el("small",
+      "Os totais incluem apenas os valores nutricionais preenchidos."
+    ));
+  }
+
+  function render() {
+    workspace.replaceChildren();
+    views = [];
+
+    blocks.forEach((meal, mi) => {
+      const box = el("div");
+      box.className = "subpanel";
+
+      const name = field(box, "Refeição", meal.nome || "");
+      const items = [];
+
+      (meal.itens || []).forEach((food, fi) => {
+        const sub = el("div");
+        sub.className = "subpanel";
+
+        const inputs = {};
+
+        foodFields.forEach(([k, label, type]) => {
+          inputs[k] = field(sub, label, food[k] ?? "", type);
+          if (type === "number") {
+            inputs[k].min = "0";
+            inputs[k].step = "any";
+            inputs[k].oninput = updateSummary;
+          }
+        });
+
+        btn(sub, "Remover alimento", () => {
+          if (!confirm("Remover este alimento?")) return;
+          sync();
+          blocks[mi].itens.splice(fi, 1);
+          render();
+        }, "danger");
+
+        box.appendChild(sub);
+        items.push(inputs);
+      });
+
+      btn(box, "+ Adicionar alimento", () => {
+        sync();
+        blocks[mi].itens.push({});
+        render();
+      });
+
+      btn(box, "Remover refeição", () => {
+        if (!confirm("Remover esta refeição?")) return;
+        sync();
+        blocks.splice(mi, 1);
+        render();
+      }, "danger");
+
+      workspace.appendChild(box);
+      views.push({name, items});
+    });
+
+    updateSummary();
+  }
+
+  render();
+
+  const controls = actions(a);
+
+  btn(controls, "+ Refeição", () => {
+    sync();
+    blocks.push({nome: "", itens: []});
+    render();
+  });
+
+  if (!isTemplate && !planId && !model) {
+    const templates = getData("modelosAlimentares");
+
+    if (templates.length) {
+      const select = el("select");
+      select.appendChild(el("option", "Selecionar modelo"));
+
+      templates.forEach(m => {
+        const option = el("option", m.titulo);
+        option.value = m.id;
+        select.appendChild(option);
+      });
+
+      a.appendChild(el("label", "Aplicar modelo alimentar"));
+      a.appendChild(select);
+
+      btn(a, "Aplicar modelo", () => {
+        const selected = templates.find(m => m.id === select.value);
+        if (selected && confirm("Substituir o plano atual pelo modelo?")) {
+          nutritionEditor(studentId, null, selected);
+        }
+      }, "secondary");
+    }
+  }
+
+  btn(controls, "Guardar plano", () => {
+    sync();
+
+    if (!title.value.trim()) {
+      alert("Preenche o nome do plano.");
+      return;
+    }
+
+    const invalid = blocks.some(b =>
+      (b.itens || []).some(item =>
+        ["calorias", "proteinas", "hidratos", "gorduras"].some(k =>
+          item[k] !== "" &&
+          (!Number.isFinite(Number(String(item[k]).replace(",", "."))) ||
+           numberValue(item[k]) < 0)
+        )
+      )
+    );
+
+    if (invalid) {
+      alert("Verifica os valores nutricionais.");
+      return;
+    }
+
+    const obj = {
+      id: planId || uid(),
+      titulo: title.value.trim(),
+      conteudo: description.value.trim(),
+      estruturado: true,
+      blocos: blocks
+    };
+
+    if (isTemplate) {
+      const data = getData("modelosAlimentares");
+      const index = data.findIndex(p => p.id === planId);
+      if (index >= 0) data[index] = {...data[index], ...obj};
+      else data.push(obj);
+
+      if (saveData("modelosAlimentares", data)) {
+        models("modelosAlimentares");
+      }
+    } else {
+      const data = getData("alunos");
+      const s = data.find(x => x.id === studentId);
+      if (!s) return;
+
+      s.planosAlimentares = s.planosAlimentares || [];
+      const index = s.planosAlimentares.findIndex(p => p.id === planId);
+
+      if (index >= 0) {
+        s.planosAlimentares[index] = {
+          ...s.planosAlimentares[index],
+          ...obj
+        };
+      } else {
+        s.planosAlimentares.push(obj);
+      }
+
+      if (saveData("alunos", data)) profile(studentId);
+    }
+  });
+
+  btn(controls, "Cancelar", () => {
+    if (isTemplate) models("modelosAlimentares");
+    else profile(studentId);
+  }, "secondary");
+}
+
+/* Integração com as funções existentes */
+
+planForm = function(id, type, pid = null, template = null) {
+  if (type === "planosAlimentares") {
+    nutritionEditor(id, pid, template);
+  } else {
+    originalPlanForm(id, type, pid, template);
+  }
+};
+
+modelForm = function(key, id = null) {
+  if (key === "modelosAlimentares") {
+    nutritionEditor(null, id);
+  } else {
+    originalModelForm(key, id);
+  }
+};
+
+profile = function(id) {
+  originalProfile(id);
+
+  const student = getData("alunos").find(s => s.id === id);
+  if (!student) return;
+
+  const plans = student.planosAlimentares || [];
+  if (!plans.length) return;
+
+  const box = el("div");
+  box.className = "panel";
+  box.appendChild(el("h3", "Resumo nutricional dos planos"));
+
+  plans.forEach(p => {
+    if (!p.estruturado || !Array.isArray(p.blocos)) return;
+
+    const item = el("div");
+    item.className = "item";
+    item.appendChild(el("b", p.titulo || "Plano alimentar"));
+    item.appendChild(el("p", totalText(totals(p.blocos))));
+    box.appendChild(item);
+  });
+
+  $("items").appendChild(box);
+};
+
+const subtitle = document.querySelector("header small");
+if (subtitle) {
+  subtitle.textContent = "O teu centro de controlo pessoal · v4.0";
+}
+
+})();
+
 </script>
 </body>
 </html>
