@@ -9,55 +9,56 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#10131b;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-header{padding:25px 20px;background:#191f2b;border-bottom:1px solid #303747}
-h1{margin:0;color:#d9b77c;font-size:27px;letter-spacing:2px}
+header{padding:24px 20px;background:#191f2b;border-bottom:1px solid #303747}
+h1{margin:0;color:#d9b77c;letter-spacing:2px;font-size:27px}
 small,.muted{color:#a7adba}
-main{padding:20px;max-width:850px;margin:auto;padding-bottom:110px}
-h2{font-size:21px;color:#e3c18a}
-h3{font-size:17px;color:#e3c18a}
+main{padding:20px 20px 110px;max-width:850px;margin:auto}
+h2,h3{color:#e3c18a}
+h2{font-size:21px}
+h3{font-size:17px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.card,.panel{background:#1d2533;border:1px solid #30394a;border-radius:15px;padding:18px}
-.card{cursor:pointer;min-height:115px}
+.card,.panel{background:#1d2533;border:1px solid #30394a;border-radius:15px;padding:17px}
+.card{cursor:pointer;min-height:110px}
 .card b{display:block;margin:12px 0 5px;color:#e3c18a}
 .card span{font-size:12px;color:#abb4c4}
 .panel{margin-top:15px}
-button{background:#c6a56d;color:#111827;border:0;border-radius:9px;padding:12px 15px;font-weight:700;cursor:pointer}
-button:disabled{opacity:.5}
+button{background:#c6a56d;color:#111827;border:0;border-radius:9px;padding:12px;font-weight:700;cursor:pointer}
 input,textarea,select{width:100%;background:#101722;border:1px solid #475064;color:white;padding:12px;border-radius:9px;margin:7px 0;font:inherit}
-textarea{min-height:90px}
-.item{border-bottom:1px solid #394253;padding:13px 0;overflow-wrap:anywhere}
+textarea{min-height:100px}
+label{display:block;margin-top:10px;color:#cbd2dd;font-size:13px}
+.item{border-bottom:1px solid #394253;padding:14px 0;overflow-wrap:anywhere}
 .item:last-child{border:0}
 .item b{color:#e3c18a}
 .item p{white-space:pre-wrap}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .actions button{padding:9px 12px}
 .secondary,.back{background:#313a4c;color:white}
 .danger{background:#693b42;color:white}
 .hidden{display:none!important}
-nav{position:fixed;bottom:0;background:#191f2b;width:100%;display:flex;justify-content:space-around;padding:13px;border-top:1px solid #303747;z-index:10}
-nav button{background:transparent;color:#d9b77c;padding:8px;font-size:13px}
-.stats{display:flex;gap:10px;margin:15px 0}
-.stat{flex:1;background:#1d2533;border-radius:12px;padding:15px;text-align:center}
+.subpanel{background:#151d2a;border:1px solid #394253;border-radius:12px;padding:12px;margin:12px 0}
+.stats{display:flex;gap:10px;margin-top:16px}
+.stat{flex:1;background:#1d2533;padding:15px;border-radius:12px;text-align:center}
 .stat strong{display:block;color:#d9b77c;font-size:25px}
-label{display:block;margin-top:10px;color:#cbd2dd;font-size:13px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+nav{position:fixed;bottom:0;left:0;width:100%;display:flex;justify-content:space-around;background:#191f2b;border-top:1px solid #303747;padding:12px;z-index:10}
+nav button{background:transparent;color:#d9b77c;font-size:13px;padding:8px}
 </style>
 </head>
 <body>
 <header>
 <h1>LIFE 2000</h1>
-<small>O teu centro de controlo pessoal</small>
+<small>O teu centro de controlo pessoal · v3.0</small>
 </header>
 <main>
 <section id="home">
 <h2>O meu espaço</h2>
 <div class="grid">
 <div class="card" onclick="show('agenda')">📅<b>Agenda</b><span>Tarefas e compromissos</span></div>
-<div class="card" onclick="show('alunos')">👥<b>Alunos</b><span>Fichas individuais</span></div>
-<div class="card" onclick="show('treinos')">🥊<b>Treinos</b><span>Planos e exercícios</span></div>
-<div class="card" onclick="show('nutricao')">🥗<b>Nutrição</b><span>Planos alimentares</span></div>
+<div class="card" onclick="show('alunos')">👥<b>Alunos</b><span>Fichas e planos</span></div>
+<div class="card" onclick="show('treinos')">🥊<b>Treinos</b><span>Modelos reutilizáveis</span></div>
+<div class="card" onclick="show('nutricao')">🥗<b>Nutrição</b><span>Modelos alimentares</span></div>
 <div class="card" onclick="show('notas')">📝<b>Notas</b><span>Ideias e organização</span></div>
-<div class="card" onclick="show('assistente')">✨<b>Assistente</b><span>Voz e texto — em preparação</span></div>
+<div class="card" onclick="show('assistente')">✨<b>Assistente</b><span>Em preparação</span></div>
+<div class="card" onclick="show('definicoes')">⚙️<b>Definições</b><span>Cópias de segurança</span></div>
 </div>
 <div class="stats">
 <div class="stat"><strong id="totalAlunos">0</strong><small>Alunos</small></div>
@@ -78,16 +79,24 @@ label{display:block;margin-top:10px;color:#cbd2dd;font-size:13px}
 <button onclick="show('notas')">✎ Notas</button>
 </nav>
 <script>
+"use strict";
+const $=id=>document.getElementById(id);
 const names={
-agenda:"Agenda",alunos:"Alunos",treinos:"Treinos",
-nutricao:"Nutrição",notas:"Notas",assistente:"Assistente IA"
+agenda:"Agenda",alunos:"Alunos",
+treinos:"Modelos de treino",
+nutricao:"Modelos alimentares",
+notas:"Notas",assistente:"Assistente IA",
+definicoes:"Definições"
 };
+const keys=["agenda","alunos","treinos","nutricao","notas","modelosTreino","modelosAlimentares"];
 let current="home";
-let selected=null;
-let editing=null;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+
 function getData(k){
-try{return JSON.parse(localStorage.getItem("life2000_"+k))||[]}
-catch{return []}
+try{
+let d=JSON.parse(localStorage.getItem("life2000_"+k));
+return Array.isArray(d)?d:[];
+}catch{return []}
 }
 function saveData(k,v){
 try{
@@ -103,294 +112,433 @@ let e=document.createElement(tag);
 if(text!==undefined)e.textContent=text;
 return e;
 }
-function addButton(parent,text,fn,cls=""){
-let b=el("button",text);
-b.className=cls;
-b.onclick=fn;
-parent.appendChild(b);
+function btn(p,t,fn,cls=""){
+let b=el("button",t);
+b.className=cls;b.onclick=fn;p.appendChild(b);
 return b;
 }
-function updateStats(){
-document.getElementById("totalAlunos").textContent=getData("alunos").length;
-document.getElementById("totalAgenda").textContent=getData("agenda").length;
+function field(p,label,value="",type="text"){
+p.appendChild(el("label",label));
+let e=el("input");
+e.type=type;e.value=value??"";
+p.appendChild(e);return e;
+}
+function memo(p,label,value=""){
+p.appendChild(el("label",label));
+let e=el("textarea");e.value=value??"";
+p.appendChild(e);return e;
+}
+function actions(p){
+let a=el("div");a.className="actions";
+p.appendChild(a);return a;
+}
+function clear(){
+$("formArea").replaceChildren();
+$("items").replaceChildren();
+}
+function stats(){
+$("totalAlunos").textContent=getData("alunos").length;
+$("totalAgenda").textContent=getData("agenda").length;
 }
 function show(k){
 current=k;
-selected=null;
-editing=null;
-document.getElementById("home").classList.toggle("hidden",k!=="home");
-document.getElementById("editor").classList.toggle("hidden",k==="home");
-updateStats();
+$("home").classList.toggle("hidden",k!=="home");
+$("editor").classList.toggle("hidden",k==="home");
+stats();
 if(k==="home")return;
-document.getElementById("sectionTitle").textContent=names[k];
-if(k==="alunos"){showStudents();return}
-if(k==="assistente"){
-document.getElementById("formArea").textContent="O assistente de voz e inteligência artificial será integrado numa próxima versão.";
-document.getElementById("items").replaceChildren();
-return;
+$("sectionTitle").textContent=names[k];
+clear();
+if(k==="alunos")students();
+else if(k==="treinos")models("modelosTreino");
+else if(k==="nutricao")models("modelosAlimentares");
+else if(k==="definicoes")settings();
+else if(k==="assistente")
+$("formArea").textContent="Assistente de voz e inteligência artificial em preparação.";
+else generic();
 }
-showGeneric();
-}
-function showGeneric(){
-let area=document.getElementById("formArea");
-area.replaceChildren();
-let title=el("input");
-title.id="title";
-title.placeholder=current==="agenda"?"Compromisso ou tarefa":"Título";
-area.appendChild(title);
-if(current==="agenda"){
-let date=el("input");
-date.type="datetime-local";
-date.id="date";
-area.appendChild(date);
-}
-let detail=el("textarea");
-detail.id="detail";
-detail.placeholder="Escreve aqui o conteúdo";
-area.appendChild(detail);
-addButton(area,"Guardar",addGeneric);
-renderGeneric();
-}
-function addGeneric(){
-let title=document.getElementById("title").value.trim();
-let detail=document.getElementById("detail").value.trim();
-let date=document.getElementById("date")?.value||"";
-if(!title){alert("Preenche o título.");return}
-let data=getData(current);
-data.unshift({title,detail,date});
-if(saveData(current,data))showGeneric();
-updateStats();
-}
-function renderGeneric(){
-let area=document.getElementById("items");
-area.replaceChildren();
-let data=getData(current);
-if(!data.length){area.textContent="Ainda não existem registos.";return}
-data.forEach((x,i)=>{
-let div=el("div");
-div.className="item";
-div.appendChild(el("b",x.title));
-if(x.date)div.appendChild(el("p",x.date.replace("T"," ")));
-if(x.detail)div.appendChild(el("p",x.detail));
-let actions=el("div");
-actions.className="actions";
-addButton(actions,"Editar",()=>{
-document.getElementById("title").value=x.title;
-document.getElementById("detail").value=x.detail||"";
-if(document.getElementById("date"))
-document.getElementById("date").value=x.date||"";
-let old=area.dataset.edit;
-area.dataset.edit=i;
-let save=document.querySelector("#formArea button");
-save.textContent="Guardar alterações";
-save.onclick=()=>{
-let d=getData(current);
-d[i]={
-title:document.getElementById("title").value.trim(),
-detail:document.getElementById("detail").value.trim(),
-date:document.getElementById("date")?.value||""
-};
-if(!d[i].title)return alert("Preenche o título.");
-if(saveData(current,d))showGeneric();
-};
-},"secondary");
-addButton(actions,"Eliminar",()=>{
-if(!confirm("Eliminar este registo?"))return;
-let d=getData(current);
-d.splice(i,1);
-if(saveData(current,d))showGeneric();
+
+function generic(index=null){
+clear();
+let a=$("formArea"),d=getData(current);
+let x=index===null?{}:d[index]||{};
+let title=field(a,"Título",x.title||"");
+let date=current==="agenda"?field(a,"Data e hora",x.date||"","datetime-local"):null;
+let detail=memo(a,"Conteúdo",x.detail||"");
+btn(a,"Guardar",()=>{
+if(!title.value.trim())return alert("Preenche o título.");
+let all=getData(current);
+let obj={title:title.value.trim(),date:date?.value||"",detail:detail.value.trim()};
+if(index===null)all.unshift(obj);
+else all[index]=obj;
+if(saveData(current,all)){generic();stats()}
+});
+let list=$("items");
+if(!d.length)list.textContent="Ainda não existem registos.";
+d.forEach((x,i)=>{
+let box=el("div");box.className="item";
+box.appendChild(el("b",x.title));
+if(x.date)box.appendChild(el("p",x.date.replace("T"," ")));
+if(x.detail)box.appendChild(el("p",x.detail));
+let ac=actions(box);
+btn(ac,"Editar",()=>generic(i),"secondary");
+btn(ac,"Eliminar",()=>{
+if(!confirm("Eliminar registo?"))return;
+let all=getData(current);all.splice(i,1);
+if(saveData(current,all))generic();
 },"danger");
-div.appendChild(actions);
-area.appendChild(div);
+list.appendChild(box);
 });
 }
-function showStudents(){
-let area=document.getElementById("formArea");
-area.replaceChildren();
-addButton(area,"+ Novo aluno",()=>studentForm());
-let search=el("input");
-search.placeholder="Pesquisar aluno pelo nome...";
+
+function students(){
+clear();
+let a=$("formArea");
+btn(a,"+ Novo aluno",()=>studentForm());
+let search=field(a,"Pesquisar aluno");
 search.oninput=()=>renderStudents(search.value);
-area.appendChild(search);
 renderStudents();
 }
-function renderStudents(filter=""){
-let area=document.getElementById("items");
-area.replaceChildren();
-let data=getData("alunos").filter(x=>x.nome.toLowerCase().includes(filter.toLowerCase()));
-if(!data.length){area.textContent="Nenhum aluno encontrado.";return}
-data.forEach(x=>{
-let div=el("div");
-div.className="item";
-div.appendChild(el("b",x.nome));
-let info=[x.idade?x.idade+" anos":"",x.peso?x.peso+" kg":"",x.objetivo||""].filter(Boolean).join(" · ");
-div.appendChild(el("p",info));
-addButton(div,"Abrir ficha",()=>studentProfile(x.id));
-area.appendChild(div);
+function renderStudents(q=""){
+let a=$("items");a.replaceChildren();
+let d=getData("alunos").filter(x=>
+String(x.nome||"").toLowerCase().includes(q.toLowerCase()));
+if(!d.length)a.textContent="Nenhum aluno encontrado.";
+d.forEach(x=>{
+let box=el("div");box.className="item";
+box.appendChild(el("b",x.nome));
+box.appendChild(el("p",[
+x.idade?x.idade+" anos":"",
+x.peso?x.peso+" kg":"",
+x.objetivo||""
+].filter(Boolean).join(" · ")));
+btn(box,"Abrir ficha",()=>profile(x.id));
+a.appendChild(box);
 });
 }
 function studentForm(id=null){
-editing=id;
-let data=getData("alunos");
-let x=data.find(a=>a.id===id)||{};
-let area=document.getElementById("formArea");
-area.replaceChildren();
-area.appendChild(el("h3",id?"Editar aluno":"Novo aluno"));
-let fields=[
-["nome","Nome do aluno","text"],
+clear();
+let a=$("formArea");
+let x=getData("alunos").find(z=>z.id===id)||{};
+a.appendChild(el("h3",id?"Editar aluno":"Novo aluno"));
+let f={};
+[
+["nome","Nome","text"],
 ["idade","Idade","number"],
 ["altura","Altura (cm)","number"],
 ["peso","Peso (kg)","number"],
-["objetivo","Objetivo principal","text"]
-];
-fields.forEach(([key,label,type])=>{
-let l=el("label",label);
-let input=el("input");
-input.id="student_"+key;
-input.type=type;
-input.value=x[key]??"";
-if(type==="number"){input.min="0";input.step=key==="peso"||key==="altura"?"0.1":"1"}
-area.append(l,input);
-});
-let l=el("label","Observações");
-let obs=el("textarea");
-obs.id="student_obs";
-obs.value=x.obs||"";
-area.append(l,obs);
-let actions=el("div");
-actions.className="actions";
-addButton(actions,"Guardar ficha",saveStudent);
-addButton(actions,"Cancelar",()=>id?studentProfile(id):showStudents(),"secondary");
-area.appendChild(actions);
-document.getElementById("items").replaceChildren();
-}
-function saveStudent(){
+["objetivo","Objetivo","text"]
+].forEach(([k,l,t])=>f[k]=field(a,l,x[k]||"",t));
+let obs=memo(a,"Observações",x.obs||"");
+let ac=actions(a);
+btn(ac,"Guardar ficha",()=>{
 let v={};
-["nome","idade","altura","peso","objetivo"].forEach(k=>{
-v[k]=document.getElementById("student_"+k).value.trim();
-});
-v.obs=document.getElementById("student_obs").value.trim();
-if(!v.nome){alert("Preenche o nome.");return}
-let data=getData("alunos");
-if(editing){
-let i=data.findIndex(a=>a.id===editing);
+Object.keys(f).forEach(k=>v[k]=f[k].value.trim());
+v.obs=obs.value.trim();
+if(!v.nome)return alert("Preenche o nome.");
+let d=getData("alunos"),newId=id||uid();
+if(id){
+let i=d.findIndex(z=>z.id===id);
 if(i<0)return;
-data[i]={...data[i],...v};
+d[i]={...d[i],...v};
 }else{
-v.id=String(Date.now())+Math.random().toString(36).slice(2);
-v.planosTreino=[];
-v.planosAlimentares=[];
-data.unshift(v);
+d.unshift({...v,id:newId,planosTreino:[],planosAlimentares:[]});
 }
-if(saveData("alunos",data)){
-let id=editing||v.id;
-editing=null;
-studentProfile(id);
-updateStats();
+if(saveData("alunos",d)){profile(newId);stats()}
+});
+btn(ac,"Cancelar",()=>id?profile(id):students(),"secondary");
 }
-}
-function studentProfile(id){
-selected=id;
-let x=getData("alunos").find(a=>a.id===id);
-if(!x){showStudents();return}
-let area=document.getElementById("formArea");
-area.replaceChildren();
-addButton(area,"← Lista de alunos",showStudents,"secondary");
-area.appendChild(el("h2",x.nome));
-let info=[
+function profile(id){
+clear();
+let x=getData("alunos").find(z=>z.id===id);
+if(!x)return students();
+let a=$("formArea");
+btn(a,"← Lista de alunos",students,"secondary");
+a.appendChild(el("h2",x.nome));
+[
 ["Idade",x.idade?x.idade+" anos":"—"],
 ["Altura",x.altura?x.altura+" cm":"—"],
 ["Peso",x.peso?x.peso+" kg":"—"],
 ["Objetivo",x.objetivo||"—"],
 ["Observações",x.obs||"—"]
-];
-info.forEach(([label,value])=>{
+].forEach(([k,v])=>{
 let p=el("p");
-p.appendChild(el("b",label+": "));
-p.appendChild(document.createTextNode(value));
-area.appendChild(p);
+p.appendChild(el("b",k+": "));
+p.appendChild(document.createTextNode(v));
+a.appendChild(p);
 });
-let actions=el("div");
-actions.className="actions";
-addButton(actions,"Editar ficha",()=>studentForm(id),"secondary");
-addButton(actions,"Eliminar aluno",()=>deleteStudent(id),"danger");
-area.appendChild(actions);
-let items=document.getElementById("items");
-items.replaceChildren();
+let ac=actions(a);
+btn(ac,"Editar ficha",()=>studentForm(id),"secondary");
+btn(ac,"Eliminar aluno",()=>{
+if(!confirm("Eliminar aluno e todos os planos?"))return;
+let d=getData("alunos").filter(z=>z.id!==id);
+if(saveData("alunos",d)){students();stats()}
+},"danger");
+let list=$("items");
 ["planosTreino","planosAlimentares"].forEach(type=>{
 let box=el("div");
 box.appendChild(el("h3",type==="planosTreino"?"🥊 Planos de treino":"🥗 Planos alimentares"));
-addButton(box,"+ Criar plano",()=>planForm(id,type));
+btn(box,"+ Criar plano",()=>planForm(id,type));
 (x[type]||[]).forEach(p=>{
-let div=el("div");
-div.className="item";
-div.appendChild(el("b",p.titulo));
-div.appendChild(el("p",p.conteudo));
-let a=el("div");
-a.className="actions";
-addButton(a,"Editar",()=>planForm(id,type,p.id),"secondary");
-addButton(a,"Eliminar",()=>deletePlan(id,type,p.id),"danger");
-div.appendChild(a);
-box.appendChild(div);
+let item=el("div");item.className="item";
+item.appendChild(el("b",p.titulo||"Plano"));
+if(p.estruturado&&Array.isArray(p.blocos)){
+p.blocos.forEach(b=>{
+item.appendChild(el("p",b.nome||""));
+(b.itens||[]).forEach(z=>item.appendChild(el("p",Object.values(z).filter(Boolean).join(" · "))));
 });
-items.appendChild(box);
+}else item.appendChild(el("p",p.conteudo||""));
+let aa=actions(item);
+btn(aa,"Editar",()=>planForm(id,type,p.id),"secondary");
+btn(aa,"Duplicar",()=>{
+let d=getData("alunos"),s=d.find(z=>z.id===id);
+let original=s[type].find(z=>z.id===p.id);
+s[type].push({...JSON.parse(JSON.stringify(original)),id:uid(),titulo:original.titulo+" (cópia)"});
+if(saveData("alunos",d))profile(id);
+},"secondary");
+btn(aa,"Eliminar",()=>{
+if(!confirm("Eliminar plano?"))return;
+let d=getData("alunos"),s=d.find(z=>z.id===id);
+s[type]=s[type].filter(z=>z.id!==p.id);
+if(saveData("alunos",d))profile(id);
+},"danger");
+item.appendChild(aa);box.appendChild(item);
 });
-}
-function planForm(id,type,planId=null){
-let x=getData("alunos").find(a=>a.id===id);
-if(!x)return;
-let p=(x[type]||[]).find(p=>p.id===planId)||{};
-let area=document.getElementById("formArea");
-area.replaceChildren();
-area.appendChild(el("h3",planId?"Editar plano":"Criar plano"));
-let title=el("input");
-title.placeholder="Nome do plano";
-title.value=p.titulo||"";
-let content=el("textarea");
-content.placeholder=type==="planosTreino"?
-"Exercícios, séries, repetições, descanso...":
-"Refeições, alimentos, quantidades, calorias...";
-content.style.minHeight="220px";
-content.value=p.conteudo||"";
-area.append(title,content);
-let actions=el("div");
-actions.className="actions";
-addButton(actions,"Guardar plano",()=>{
-if(!title.value.trim())return alert("Preenche o nome do plano.");
-let data=getData("alunos");
-let aluno=data.find(a=>a.id===id);
-if(!aluno)return;
-aluno[type]=aluno[type]||[];
-if(planId){
-let old=aluno[type].find(a=>a.id===planId);
-if(old){old.titulo=title.value.trim();old.conteudo=content.value.trim()}
-}else{
-aluno[type].push({
-id:String(Date.now())+Math.random().toString(36).slice(2),
-titulo:title.value.trim(),
-conteudo:content.value.trim()
+list.appendChild(box);
 });
 }
-if(saveData("alunos",data))studentProfile(id);
+
+function planForm(id,type,pid=null,template=null){
+clear();
+let student=getData("alunos").find(z=>z.id===id);
+if(!student)return students();
+let p=template||(student[type]||[]).find(z=>z.id===pid)||{};
+let a=$("formArea");
+a.appendChild(el("h3",pid?"Editar plano":"Novo plano"));
+let title=field(a,"Nome do plano",p.titulo||"");
+let mode=el("select");
+[["structured","Estruturado"],["text","Texto livre"]].forEach(([v,t])=>{
+let o=el("option",t);o.value=v;mode.appendChild(o);
 });
-addButton(actions,"Cancelar",()=>studentProfile(id),"secondary");
-area.appendChild(actions);
-document.getElementById("items").replaceChildren();
+mode.value=!p.estruturado&&p.conteudo?"text":"structured";
+a.appendChild(el("label","Formato"));
+a.appendChild(mode);
+let textBox=el("div"),structured=el("div");
+a.append(textBox,structured);
+let content=memo(textBox,"Conteúdo",p.conteudo||"");
+let blocks=Array.isArray(p.blocos)?JSON.parse(JSON.stringify(p.blocos)):[];
+if(!blocks.length)blocks=[{nome:type==="planosTreino"?"Treino A":"Pequeno-almoço",itens:[]}];
+let views=[];
+function sync(){
+views.forEach((v,i)=>{
+if(!blocks[i])return;
+blocks[i].nome=v.name.value.trim();
+blocks[i].itens=v.items.map(f=>Object.fromEntries(
+Object.entries(f).map(([k,e])=>[k,e.value.trim()])
+));
+});
 }
-function deletePlan(id,type,planId){
-if(!confirm("Eliminar este plano?"))return;
-let data=getData("alunos");
-let x=data.find(a=>a.id===id);
-if(!x)return;
-x[type]=(x[type]||[]).filter(p=>p.id!==planId);
-if(saveData("alunos",data))studentProfile(id);
+function render(){
+structured.replaceChildren();views=[];
+blocks.forEach((b,bi)=>{
+let box=el("div");box.className="subpanel";
+let name=field(box,type==="planosTreino"?"Sessão / bloco":"Refeição",b.nome||"");
+let items=[];
+(b.itens||[]).forEach((z,zi)=>{
+let sub=el("div");sub.className="subpanel",f={};
+let fields=type==="planosTreino"?
+[["nome","Exercício"],["series","Séries"],["reps","Repetições / duração"],["carga","Carga"],["descanso","Descanso"],["obs","Observações"]]:
+[["nome","Alimento"],["quantidade","Quantidade"],["calorias","Calorias"],["obs","Observações"]];
+fields.forEach(([k,l])=>f[k]=field(sub,l,z[k]||""));
+btn(sub,"Remover item",()=>{
+sync();blocks[bi].itens.splice(zi,1);render();
+},"danger");
+box.appendChild(sub);items.push(f);
+});
+btn(box,type==="planosTreino"?"+ Exercício":"+ Alimento",()=>{
+sync();blocks[bi].itens.push({});render();
+});
+btn(box,"Remover bloco",()=>{
+sync();blocks.splice(bi,1);render();
+},"danger");
+structured.appendChild(box);
+views.push({name,items});
+});
 }
-function deleteStudent(id){
-if(!confirm("Eliminar o aluno e todos os seus planos?"))return;
-let data=getData("alunos").filter(a=>a.id!==id);
-if(saveData("alunos",data)){showStudents();updateStats()}
+render();
+function toggle(){
+textBox.classList.toggle("hidden",mode.value!=="text");
+structured.classList.toggle("hidden",mode.value!=="structured");
 }
-updateStats();
+mode.onchange=toggle;toggle();
+let ac=actions(a);
+btn(ac,"+ Bloco / refeição",()=>{
+sync();blocks.push({nome:"",itens:[]});render();
+});
+let key=type==="planosTreino"?"modelosTreino":"modelosAlimentares";
+let templates=getData(key);
+if(!pid&&templates.length){
+let choice=el("select");
+choice.appendChild(el("option","Selecionar modelo"));
+templates.forEach(m=>{
+let o=el("option",m.titulo);o.value=m.id;choice.appendChild(o);
+});
+a.appendChild(el("label","Usar modelo"));
+a.appendChild(choice);
+btn(a,"Aplicar modelo",()=>{
+let m=templates.find(z=>z.id===choice.value);
+if(m&&confirm("Substituir o conteúdo atual?"))planForm(id,type,null,m);
+},"secondary");
+}
+btn(ac,"Guardar plano",()=>{
+if(!title.value.trim())return alert("Preenche o nome.");
+sync();
+let obj={
+id:pid||uid(),titulo:title.value.trim(),
+conteudo:mode.value==="text"?content.value.trim():"",
+estruturado:mode.value==="structured",
+blocos:mode.value==="structured"?blocks:[]
+};
+let d=getData("alunos"),s=d.find(z=>z.id===id);
+if(!s)return;
+s[type]=s[type]||[];
+let i=s[type].findIndex(z=>z.id===pid);
+if(i>=0)s[type][i]={...s[type][i],...obj};
+else s[type].push(obj);
+if(saveData("alunos",d))profile(id);
+});
+btn(ac,"Cancelar",()=>profile(id),"secondary");
+}
+
+function models(key){
+clear();
+let a=$("formArea"),list=$("items");
+a.appendChild(el("p","Cria modelos reutilizáveis para os teus alunos."));
+btn(a,"+ Novo modelo",()=>modelForm(key));
+let d=getData(key);
+if(!d.length)list.textContent="Ainda não existem modelos.";
+d.forEach(m=>{
+let box=el("div");box.className="item";
+box.appendChild(el("b",m.titulo));
+box.appendChild(el("p",m.conteudo||(m.blocos||[]).map(b=>b.nome).join(" · ")));
+let ac=actions(box);
+btn(ac,"Editar",()=>modelForm(key,m.id),"secondary");
+btn(ac,"Duplicar",()=>{
+let all=getData(key);
+all.push({...JSON.parse(JSON.stringify(m)),id:uid(),titulo:m.titulo+" (cópia)"});
+if(saveData(key,all))models(key);
+},"secondary");
+btn(ac,"Eliminar",()=>{
+if(!confirm("Eliminar modelo?"))return;
+if(saveData(key,getData(key).filter(z=>z.id!==m.id)))models(key);
+},"danger");
+list.appendChild(box);
+});
+}
+function modelForm(key,id=null){
+clear();
+let d=getData(key),m=d.find(z=>z.id===id)||{},a=$("formArea");
+a.appendChild(el("h3",id?"Editar modelo":"Novo modelo"));
+let title=field(a,"Nome do modelo",m.titulo||"");
+let desc=memo(a,"Descrição",m.conteudo||"");
+let blocks=Array.isArray(m.blocos)?JSON.parse(JSON.stringify(m.blocos)):[];
+let list=el("div");a.appendChild(list);
+let views=[];
+function sync(){
+views.forEach((v,i)=>{
+blocks[i].nome=v.name.value.trim();
+blocks[i].itens=v.items.map(f=>Object.fromEntries(
+Object.entries(f).map(([k,e])=>[k,e.value.trim()])
+));
+});
+}
+function render(){
+list.replaceChildren();views=[];
+blocks.forEach((b,bi)=>{
+let box=el("div");box.className="subpanel";
+let name=field(box,key==="modelosTreino"?"Sessão / bloco":"Refeição",b.nome||"");
+let items=[];
+(b.itens||[]).forEach((z,zi)=>{
+let sub=el("div");sub.className="subpanel",f={};
+let fields=key==="modelosTreino"?
+[["nome","Exercício"],["series","Séries"],["reps","Repetições"],["carga","Carga"],["descanso","Descanso"],["obs","Observações"]]:
+[["nome","Alimento"],["quantidade","Quantidade"],["calorias","Calorias"],["obs","Observações"]];
+fields.forEach(([k,l])=>f[k]=field(sub,l,z[k]||""));
+btn(sub,"Remover item",()=>{
+sync();blocks[bi].itens.splice(zi,1);render();
+},"danger");
+box.appendChild(sub);items.push(f);
+});
+btn(box,"+ Item",()=>{
+sync();blocks[bi].itens.push({});render();
+});
+btn(box,"Remover bloco",()=>{
+sync();blocks.splice(bi,1);render();
+},"danger");
+list.appendChild(box);views.push({name,items});
+});
+}
+render();
+let ac=actions(a);
+btn(ac,"+ Bloco / refeição",()=>{
+sync();blocks.push({nome:"",itens:[]});render();
+});
+btn(ac,"Guardar modelo",()=>{
+if(!title.value.trim())return alert("Preenche o nome.");
+sync();
+let all=getData(key);
+let obj={id:id||uid(),titulo:title.value.trim(),conteudo:desc.value.trim(),blocos,estruturado:blocks.length>0};
+let i=all.findIndex(z=>z.id===id);
+if(i>=0)all[i]=obj;else all.push(obj);
+if(saveData(key,all))models(key);
+});
+btn(ac,"Cancelar",()=>models(key),"secondary");
+}
+
+function settings(){
+clear();
+let a=$("formArea");
+a.appendChild(el("h3","Cópia de segurança"));
+a.appendChild(el("p","Os dados são guardados neste navegador. Não existe sincronização automática."));
+btn(a,"Exportar cópia JSON",()=>{
+let data={app:"LIFE 2000",version:3,exportedAt:new Date().toISOString(),data:{}};
+keys.forEach(k=>data.data[k]=getData(k));
+let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+let url=URL.createObjectURL(blob),link=el("a");
+link.href=url;
+link.download="life2000-backup.json";
+document.body.appendChild(link);
+link.click();link.remove();
+setTimeout(()=>URL.revokeObjectURL(url),3000);
+});
+let file=field(a,"Importar cópia JSON","","file");
+file.accept=".json,application/json";
+btn(a,"Importar e substituir dados",async()=>{
+if(!file.files?.[0])return alert("Seleciona um ficheiro.");
+let data;
+try{data=JSON.parse(await file.files[0].text())}
+catch{return alert("Ficheiro inválido.");}
+if(data.app!=="LIFE 2000"||!data.data||!keys.every(k=>Array.isArray(data.data[k])))
+return alert("Cópia incompatível.");
+if(!confirm("Isto vai substituir todos os dados atuais. Continuar?"))return;
+let old={};
+keys.forEach(k=>old[k]=localStorage.getItem("life2000_"+k));
+try{
+keys.forEach(k=>localStorage.setItem("life2000_"+k,JSON.stringify(data.data[k])));
+}catch(e){
+keys.forEach(k=>{
+try{
+if(old[k]===null)localStorage.removeItem("life2000_"+k);
+else localStorage.setItem("life2000_"+k,old[k]);
+}catch{}
+});
+return alert("Erro ao importar. Verifica os dados.");
+}
+alert("Cópia importada.");
+show("home");
+});
+a.appendChild(el("p","Não introduzas dados pessoais reais de alunos antes de implementarmos autenticação e armazenamento seguro."));
+}
+stats();
 </script>
 </body>
 </html>
