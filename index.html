@@ -1261,6 +1261,362 @@ if (subtitle) {
 
 })();
 
+/* LIFE 2000 v4.3 — BIBLIOTECA DE ALIMENTOS */
+/* PARTE 1 */
+(function () {
+"use strict";
+
+const foodKey = "bibliotecaAlimentos";
+
+function getFoods() {
+  return getData(foodKey);
+}
+
+function saveFoods(data) {
+  return saveData(foodKey, data);
+}
+
+function nutritionNumber(value) {
+  const n = Number(String(value ?? "0").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function nutritionCalculate(food, grams) {
+  const factor = nutritionNumber(grams) / 100;
+  const result = {};
+
+  ["calorias", "proteinas", "hidratos", "gorduras"]
+    .forEach(key => {
+      result[key] = Math.round(
+        nutritionNumber(food[key]) * factor * 10
+      ) / 10;
+    });
+
+  return result;
+}
+
+function nutritionFormat(value) {
+  return String(Math.round(value * 10) / 10);
+}
+
+function foodLibrary() {
+  clear();
+
+  const form = $("formArea");
+  const list = $("items");
+
+  form.appendChild(el("h3", "🥗 Biblioteca de alimentos"));
+
+  btn(form, "+ Novo alimento", () => foodForm());
+
+  const search = field(form, "Pesquisar alimento");
+
+  function render(query = "") {
+    list.replaceChildren();
+
+    const foods = getFoods()
+      .filter(food => String(food.nome || "")
+        .toLowerCase().includes(query.toLowerCase()))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+
+    if (!foods.length) {
+      list.textContent = "Nenhum alimento encontrado.";
+      return;
+    }
+
+    foods.forEach(food => {
+      const box = el("div");
+      box.className = "item";
+
+      box.appendChild(el("b", food.nome));
+      box.appendChild(el("p", "Valores por 100 g"));
+
+      [
+        ["Calorias", "calorias", " kcal"],
+        ["Proteínas", "proteinas", " g"],
+        ["Hidratos", "hidratos", " g"],
+        ["Gorduras", "gorduras", " g"]
+      ].forEach(([label, key, unit]) => {
+        const p = el("p",
+          label + ": " + food[key] + unit
+        );
+        p.style.margin = "5px 0";
+        box.appendChild(p);
+      });
+
+      const ac = actions(box);
+
+      btn(ac, "Editar", () => foodForm(food.id),
+        "secondary");
+
+      btn(ac, "Eliminar", () => {
+        if (!confirm("Eliminar este alimento da biblioteca?"))
+          return;
+
+        const data = getFoods()
+          .filter(item => item.id !== food.id);
+
+        if (saveFoods(data)) render(search.value);
+      }, "danger");
+
+      list.appendChild(box);
+    });
+  }
+
+  search.oninput = () => render(search.value);
+  render();
+}
+
+function foodForm(id = null) {
+  clear();
+
+  const form = $("formArea");
+  const food = getFoods().find(x => x.id === id) || {};
+
+  form.appendChild(el("h3",
+    id ? "Editar alimento" : "Novo alimento"
+  ));
+
+  const name = field(form, "Nome do alimento",
+    food.nome || "");
+
+  form.appendChild(el("p",
+    "Introduz os valores nutricionais por 100 g."
+  ));
+
+  const inputs = {};
+
+  [
+    ["calorias", "Calorias (kcal)"],
+    ["proteinas", "Proteínas (g)"],
+    ["hidratos", "Hidratos (g)"],
+    ["gorduras", "Gorduras (g)"]
+  ].forEach(([key, label]) => {
+    inputs[key] = field(form, label,
+      food[key] ?? "", "number");
+
+    inputs[key].min = "0";
+    inputs[key].step = "any";
+  });
+
+  const ac = actions(form);
+
+  btn(ac, "Guardar alimento", () => {
+    if (!name.value.trim()) {
+      alert("Introduz o nome do alimento.");
+      return;
+    }
+
+    const data = getFoods();
+
+    const obj = {
+      id: id || uid(),
+      nome: name.value.trim()
+    };
+
+    for (const key of Object.keys(inputs)) {
+      const raw = inputs[key].value.trim();
+      const value = Number(raw.replace(",", "."));
+
+      if (raw === "" || !Number.isFinite(value) ||
+          value < 0) {
+        alert("Preenche corretamente " + key);
+        return;
+      }
+
+      obj[key] = value;
+    }
+
+    const index = data.findIndex(x => x.id === id);
+
+    if (index >= 0) {
+      data[index] = obj;
+    } else {
+      data.push(obj);
+    }
+
+    if (saveFoods(data)) foodLibrary();
+  });
+
+  btn(ac, "Cancelar", foodLibrary, "secondary");
+}
+
+/* Funções disponíveis para a Parte 2 */
+window.lifeFoodLibrary = {
+  getFoods,
+  nutritionCalculate,
+  nutritionFormat,
+  foodLibrary
+};
+
+})();
+
+/* LIFE 2000 v4.3 — PARTE 2 */
+/* Integração da biblioteca alimentar */
+(function () {
+"use strict";
+
+const lib = window.lifeFoodLibrary;
+if (!lib) return;
+
+/* Mostrar biblioteca no módulo Nutrição */
+
+const previousShow = show;
+
+show = function(k) {
+  previousShow(k);
+
+  if (k === "nutricao") {
+    const area = $("formArea");
+    const bar = el("div");
+    bar.className = "subpanel";
+
+    btn(bar, "🥗 Biblioteca de alimentos",
+      () => lib.foodLibrary());
+
+    area.prepend(bar);
+  }
+};
+
+/* Integrar alimentos nos planos individuais */
+
+const previousPlanForm = planForm;
+
+planForm = function(id, type, pid = null, template = null) {
+  previousPlanForm(id, type, pid, template);
+
+  if (type !== "planosAlimentares") return;
+
+  const area = $("formArea");
+  const panel = el("div");
+  panel.className = "subpanel";
+
+  panel.appendChild(el("h3", "Adicionar da biblioteca"));
+
+  const foods = lib.getFoods();
+
+  if (!foods.length) {
+    panel.appendChild(el("p",
+      "A biblioteca está vazia. Regista primeiro um alimento."
+    ));
+    area.appendChild(panel);
+    return;
+  }
+
+  const select = el("select");
+  select.appendChild(el("option", "Selecionar alimento"));
+
+  foods.forEach(food => {
+    const option = el("option", food.nome);
+    option.value = food.id;
+    select.appendChild(option);
+  });
+
+  panel.appendChild(select);
+
+  const quantity = field(panel, "Quantidade (g)", "", "number");
+  quantity.min = "0";
+  quantity.step = "any";
+
+  const preview = el("div");
+  preview.className = "subpanel";
+  panel.appendChild(preview);
+
+  function updatePreview() {
+    preview.replaceChildren();
+
+    const food = foods.find(f => f.id === select.value);
+    const grams = Number(quantity.value);
+
+    if (!food || !quantity.value || !Number.isFinite(grams) ||
+        grams <= 0) {
+      preview.textContent = "Seleciona um alimento e indica os gramas.";
+      return;
+    }
+
+    const result = lib.nutritionCalculate(food, grams);
+
+    preview.appendChild(el("b", food.nome + " — " + grams + " g"));
+
+    [
+      ["Calorias", result.calorias, " kcal"],
+      ["Proteínas", result.proteinas, " g"],
+      ["Hidratos", result.hidratos, " g"],
+      ["Gorduras", result.gorduras, " g"]
+    ].forEach(([label, value, unit]) => {
+      preview.appendChild(el("p", label + ": " + value + unit));
+    });
+  }
+
+  select.onchange = updatePreview;
+  quantity.oninput = updatePreview;
+  updatePreview();
+
+  panel.appendChild(el("p",
+    "Os valores calculados podem ser copiados para o alimento da refeição."
+  ));
+
+  btn(panel, "Copiar valores", () => {
+    const food = foods.find(f => f.id === select.value);
+    const grams = Number(quantity.value);
+
+    if (!food || !Number.isFinite(grams) || grams <= 0) {
+      alert("Seleciona um alimento e uma quantidade válida.");
+      return;
+    }
+
+    const result = lib.nutritionCalculate(food, grams);
+
+    const text = [
+      food.nome,
+      grams + " g",
+      result.calorias + " kcal",
+      result.proteinas + " g proteínas",
+      result.hidratos + " g hidratos",
+      result.gorduras + " g gorduras"
+    ].join("\n");
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => alert("Valores copiados."))
+        .catch(() => prompt("Copia os valores:", text));
+    } else {
+      prompt("Copia os valores:", text);
+    }
+  }, "secondary");
+
+  area.appendChild(panel);
+};
+
+/* Incluir biblioteca nas cópias de segurança */
+
+if (!keys.includes("bibliotecaAlimentos")) {
+  keys.push("bibliotecaAlimentos");
+}
+
+/* Compatibilidade com backups antigos */
+const previousSettings = settings;
+
+settings = function() {
+  previousSettings();
+
+  const area = $("formArea");
+  area.appendChild(el("p",
+    "A biblioteca de alimentos está incluída nas novas cópias JSON."
+  ));
+};
+
+/* Versão */
+const subtitle = document.querySelector("header small");
+
+if (subtitle) {
+  subtitle.textContent =
+    "O teu centro de controlo pessoal · v4.3";
+}
+
+})();
+  
+
 
 
 </script>
