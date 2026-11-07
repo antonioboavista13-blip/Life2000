@@ -46,7 +46,7 @@ nav button{background:transparent;color:#d9b77c;font-size:13px;padding:8px}
 <body>
 <header>
 <h1>LIFE 2000</h1>
-<small>O teu centro de controlo pessoal · v3.0</small>
+<small>O teu centro de controlo pessoal · v3.1</small>
 </header>
 <main>
 <section id="home">
@@ -344,12 +344,15 @@ let box=el("div");box.className="subpanel";
 let name=field(box,type==="planosTreino"?"Sessão / bloco":"Refeição",b.nome||"");
 let items=[];
 (b.itens||[]).forEach((z,zi)=>{
-let sub=el("div");sub.className="subpanel",f={};
+let sub=el("div");
+sub.className="subpanel";
+const f={};
 let fields=type==="planosTreino"?
 [["nome","Exercício"],["series","Séries"],["reps","Repetições / duração"],["carga","Carga"],["descanso","Descanso"],["obs","Observações"]]:
 [["nome","Alimento"],["quantidade","Quantidade"],["calorias","Calorias"],["obs","Observações"]];
 fields.forEach(([k,l])=>f[k]=field(sub,l,z[k]||""));
 btn(sub,"Remover item",()=>{
+if(!confirm("Remover este item?"))return;
 sync();blocks[bi].itens.splice(zi,1);render();
 },"danger");
 box.appendChild(sub);items.push(f);
@@ -358,6 +361,7 @@ btn(box,type==="planosTreino"?"+ Exercício":"+ Alimento",()=>{
 sync();blocks[bi].itens.push({});render();
 });
 btn(box,"Remover bloco",()=>{
+if(!confirm("Remover este bloco?"))return;
 sync();blocks.splice(bi,1);render();
 },"danger");
 structured.appendChild(box);
@@ -368,12 +372,14 @@ render();
 function toggle(){
 textBox.classList.toggle("hidden",mode.value!=="text");
 structured.classList.toggle("hidden",mode.value!=="structured");
+addBlockBtn.classList.toggle("hidden",mode.value!=="structured");
 }
-mode.onchange=toggle;toggle();
+mode.onchange=toggle;
 let ac=actions(a);
-btn(ac,"+ Bloco / refeição",()=>{
+let addBlockBtn=btn(ac,"+ Bloco / refeição",()=>{
 sync();blocks.push({nome:"",itens:[]});render();
 });
+toggle();
 let key=type==="planosTreino"?"modelosTreino":"modelosAlimentares";
 let templates=getData(key);
 if(!pid&&templates.length){
@@ -445,6 +451,7 @@ let list=el("div");a.appendChild(list);
 let views=[];
 function sync(){
 views.forEach((v,i)=>{
+if(!blocks[i])return;
 blocks[i].nome=v.name.value.trim();
 blocks[i].itens=v.items.map(f=>Object.fromEntries(
 Object.entries(f).map(([k,e])=>[k,e.value.trim()])
@@ -458,12 +465,15 @@ let box=el("div");box.className="subpanel";
 let name=field(box,key==="modelosTreino"?"Sessão / bloco":"Refeição",b.nome||"");
 let items=[];
 (b.itens||[]).forEach((z,zi)=>{
-let sub=el("div");sub.className="subpanel",f={};
+let sub=el("div");
+sub.className="subpanel";
+const f={};
 let fields=key==="modelosTreino"?
 [["nome","Exercício"],["series","Séries"],["reps","Repetições"],["carga","Carga"],["descanso","Descanso"],["obs","Observações"]]:
 [["nome","Alimento"],["quantidade","Quantidade"],["calorias","Calorias"],["obs","Observações"]];
 fields.forEach(([k,l])=>f[k]=field(sub,l,z[k]||""));
 btn(sub,"Remover item",()=>{
+if(!confirm("Remover este item?"))return;
 sync();blocks[bi].itens.splice(zi,1);render();
 },"danger");
 box.appendChild(sub);items.push(f);
@@ -472,6 +482,7 @@ btn(box,"+ Item",()=>{
 sync();blocks[bi].itens.push({});render();
 });
 btn(box,"Remover bloco",()=>{
+if(!confirm("Remover este bloco?"))return;
 sync();blocks.splice(bi,1);render();
 },"danger");
 list.appendChild(box);views.push({name,items});
