@@ -1615,7 +1615,709 @@ if (subtitle) {
 }
 
 })();
-  
+  /* LIFE 2000 v4.4 — PARTE 1
+   Biblioteca organizada por categorias */
+(function () {
+"use strict";
+
+const lib = window.lifeFoodLibrary;
+if (!lib) return;
+
+const GROUPS = [
+  {
+    nome: "Proteínas",
+    emoji: "🥩",
+    sub: ["Carnes", "Peixes", "Ovos", "Outras proteínas"]
+  },
+  {
+    nome: "Hidratos",
+    emoji: "🍚",
+    sub: ["Arroz e massas", "Batatas", "Pão e cereais"]
+  },
+  {
+    nome: "Legumes",
+    emoji: "🥦",
+    sub: ["Legumes e hortícolas"]
+  },
+  {
+    nome: "Frutas",
+    emoji: "🍎",
+    sub: ["Frutas"]
+  },
+  {
+    nome: "Gorduras",
+    emoji: "🥑",
+    sub: ["Óleos e frutos secos"]
+  },
+  {
+    nome: "Laticínios",
+    emoji: "🥛",
+    sub: ["Leite, iogurtes e queijos"]
+  },
+  {
+    nome: "Leguminosas",
+    emoji: "🫘",
+    sub: ["Feijão, grão e lentilhas"]
+  }
+];
+
+const FOOD_KEY = "bibliotecaAlimentos";
+
+function getFoods() {
+  return getData(FOOD_KEY);
+}
+
+function saveFoods(foods) {
+  return saveData(FOOD_KEY, foods);
+}
+
+function classify(food) {
+  if (food.categoria && food.subcategoria) return food;
+
+  const name = String(food.nome || "").toLowerCase();
+
+  const rules = [
+    ["Proteínas", "Carnes",
+      /frango|peru|vaca|vitela|porco|coelho|carne/],
+    ["Proteínas", "Peixes",
+      /salmão|salmao|pescada|bacalhau|atum|dourada|robalo|sardinha|cavala|camarão/],
+    ["Proteínas", "Ovos", /ovo|clara/],
+    ["Hidratos", "Arroz e massas",
+      /arroz|massa|cuscuz|quinoa|bulgur/],
+    ["Hidratos", "Batatas", /batata/],
+    ["Hidratos", "Pão e cereais",
+      /pão|pao|aveia|tortilha|cereal/],
+    ["Legumes", "Legumes e hortícolas",
+      /brócol|brocol|cenoura|curgete|espinafre|couve|alface|tomate|pepino|pimento|cebola|cogumelo|abóbora|abobora|beringela|espargo/],
+    ["Frutas", "Frutas",
+      /banana|maçã|maca|laranja|morango|mirtilo|pera|kiwi|ananás|ananas|melão|melao/],
+    ["Gorduras", "Óleos e frutos secos",
+      /azeite|óleo|oleo|abacate|amêndoa|amendoa|noz|nozes/],
+    ["Laticínios", "Leite, iogurtes e queijos",
+      /leite|iogurte|queijo/],
+    ["Leguminosas", "Feijão, grão e lentilhas",
+      /feijão|feijao|grão|grao|lentilha|ervilha/]
+  ];
+
+  for (const [categoria, subcategoria, regex] of rules) {
+    if (regex.test(name)) {
+      return {...food, categoria, subcategoria};
+    }
+  }
+
+  return {
+    ...food,
+    categoria: "Proteínas",
+    subcategoria: "Outras proteínas"
+  };
+}
+
+function migrateFoods() {
+  const foods = getFoods();
+  let changed = false;
+
+  const updated = foods.map(food => {
+    if (food.categoria && food.subcategoria) return food;
+    changed = true;
+    return classify(food);
+  });
+
+  if (changed) saveFoods(updated);
+}
+
+function categorySelect(parent, value = "") {
+  const select = el("select");
+
+  GROUPS.forEach(group => {
+    const option = el("option", group.emoji + " " + group.nome);
+    option.value = group.nome;
+    select.appendChild(option);
+  });
+
+  select.value = GROUPS.some(g => g.nome === value)
+    ? value : GROUPS[0].nome;
+
+  parent.appendChild(select);
+  return select;
+}
+
+function subcategorySelect(parent, category, value = "") {
+  const select = el("select");
+  parent.appendChild(select);
+
+  function update(cat, selected = "") {
+    select.replaceChildren();
+
+    const group = GROUPS.find(g => g.nome === cat);
+    if (!group) return;
+
+    group.sub.forEach(name => {
+      const option = el("option", name);
+      option.value = name;
+      select.appendChild(option);
+    });
+
+    if (group.sub.includes(selected)) select.value = selected;
+  }
+
+  update(category, value);
+  return {select, update};
+}
+
+function foodForm(id = null) {
+  clear();
+
+  const area = $("formArea");
+  const existing = getFoods().find(f => f.id === id) || {};
+
+  area.appendChild(el("h3",
+    id ? "Editar alimento" : "Novo alimento"));
+
+  const name = field(area, "Nome do alimento", existing.nome || "");
+
+  area.appendChild(el("label", "Categoria"));
+  const category = categorySelect(area, existing.categoria);
+
+  area.appendChild(el("label", "Subcategoria"));
+  const sub = subcategorySelect(
+    area, category.value, existing.subcategoria
+  );
+
+  category.onchange = () => sub.update(category.value);
+
+  area.appendChild(el("p",
+    "Valores por 100 g do alimento pronto a comer."));
+
+  const inputs = {};
+
+  [
+    ["calorias", "Calorias (kcal)"],
+    ["proteinas", "Proteínas (g)"],
+    ["hidratos", "Hidratos (g)"],
+    ["gorduras", "Gorduras (g)"]
+  ].forEach(([key, label]) => {
+    inputs[key] = field(
+      area, label, existing[key] ?? "", "number"
+    );
+    inputs[key].min = "0";
+    inputs[key].step = "any";
+  });
+
+  const ac = actions(area);
+
+  btn(ac, "Guardar alimento", () => {
+    if (!name.value.trim()) {
+      alert("Introduz o nome do alimento.");
+      return;
+    }
+
+    const obj = {
+      ...existing,
+      id: id || uid(),
+      nome: name.value.trim(),
+      categoria: category.value,
+      subcategoria: sub.select.value
+    };
+
+    for (const key of Object.keys(inputs)) {
+      const raw = inputs[key].value.trim();
+      const n = Number(raw.replace(",", "."));
+
+      if (raw === "" || !Number.isFinite(n) || n < 0) {
+        alert("Verifica o valor de " + key);
+        return;
+      }
+      obj[key] = n;
+    }
+
+    const foods = getFoods();
+    const index = foods.findIndex(f => f.id === id);
+
+    if (index >= 0) foods[index] = obj;
+    else foods.push(obj);
+
+    if (saveFoods(foods)) foodLibrary();
+  });
+
+  btn(ac, "Cancelar", foodLibrary, "secondary");
+}
+
+function foodLibrary() {
+  migrateFoods();
+  clear();
+
+  const area = $("formArea");
+  const list = $("items");
+
+  area.appendChild(el("h3", "🥗 Biblioteca de alimentos"));
+
+  btn(area, "+ Novo alimento", () => foodForm());
+
+  const search = field(area, "Pesquisar alimento");
+
+  function render() {
+    list.replaceChildren();
+
+    const query = search.value.toLowerCase();
+    const foods = getFoods().filter(f =>
+      String(f.nome || "").toLowerCase().includes(query)
+    );
+
+    GROUPS.forEach(group => {
+      const matches = foods.filter(f => f.categoria === group.nome);
+      if (!matches.length) return;
+
+      const details = el("details");
+      details.open = !!query;
+
+      const heading = el("summary", group.emoji + " " + group.nome);
+      heading.style.color = "#e3c18a";
+      heading.style.fontWeight = "700";
+      heading.style.padding = "12px";
+      heading.style.cursor = "pointer";
+      details.appendChild(heading);
+
+      group.sub.forEach(subname => {
+        const subset = matches.filter(f => f.subcategoria === subname);
+        if (!subset.length) return;
+
+        const section = el("div");
+        section.className = "subpanel";
+        section.appendChild(el("h3", subname));
+
+        subset.sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+
+        subset.forEach(food => {
+          const box = el("div");
+          box.className = "item";
+
+          box.appendChild(el("b", food.nome));
+          box.appendChild(el("p",
+            "Por 100 g: " +
+            food.calorias + " kcal · " +
+            food.proteinas + " g proteína · " +
+            food.hidratos + " g hidratos · " +
+            food.gorduras + " g gordura"
+          ));
+
+          const ac = actions(box);
+
+          btn(ac, "Editar", () => foodForm(food.id), "secondary");
+
+          btn(ac, "Eliminar", () => {
+            if (!confirm("Eliminar este alimento?")) return;
+            const updated = getFoods().filter(f => f.id !== food.id);
+            if (saveFoods(updated)) render();
+          }, "danger");
+
+          section.appendChild(box);
+        });
+
+        details.appendChild(section);
+      });
+
+      list.appendChild(details);
+    });
+
+    if (!list.children.length) {
+      list.textContent = "Nenhum alimento encontrado.";
+    }
+  }
+
+  search.oninput = render;
+  render();
+}
+
+window.lifeFoodLibrary.foodLibrary = foodLibrary;
+window.lifeFoodLibrary.foodForm = foodForm;
+window.lifeFoodLibrary.groups = GROUPS;
+window.lifeFoodLibrary.migrateFoods = migrateFoods;
+
+const previousShow = show;
+
+show = function(k) {
+  previousShow(k);
+
+  if (k === "nutricao") {
+    const button = [...$("formArea").querySelectorAll("button")]
+      .find(b => b.textContent.includes("Biblioteca de alimentos"));
+
+    if (button) button.onclick = foodLibrary;
+  }
+};
+
+migrateFoods();
+
+})();
+  /* LIFE 2000 v4.4 — PARTE 2
+   Adição automática de alimentos às refeições */
+(function () {
+"use strict";
+
+const lib = window.lifeFoodLibrary;
+if (!lib) return;
+
+const originalPlanForm44 = planForm;
+const originalModelForm44 = modelForm;
+
+function addPickers() {
+  const area = $("formArea");
+  if (!area) return;
+
+  const mealButtons = [...area.querySelectorAll("button")]
+    .filter(b => b.textContent.trim() === "+ Adicionar alimento");
+
+  mealButtons.forEach((addButton, mealIndex) => {
+    const mealBox = addButton.parentElement;
+
+    if (!mealBox || mealBox.querySelector(".life44picker")) {
+      return;
+    }
+
+    const panel = el("div");
+    panel.className = "subpanel life44picker";
+
+    panel.appendChild(el("h3", "🥗 Escolher da biblioteca"));
+
+    const category = el("select");
+    const subcategory = el("select");
+    const foodSelect = el("select");
+
+    panel.appendChild(el("label", "Categoria"));
+    panel.appendChild(category);
+
+    panel.appendChild(el("label", "Tipo de alimento"));
+    panel.appendChild(subcategory);
+
+    panel.appendChild(el("label", "Alimento"));
+    panel.appendChild(foodSelect);
+
+    const grams = field(
+      panel, "Quantidade em gramas", "100", "number"
+    );
+    grams.min = "0";
+    grams.step = "any";
+
+    const preview = el("div");
+    preview.className = "subpanel";
+    panel.appendChild(preview);
+
+    function foods() {
+      return lib.getFoods();
+    }
+
+    function selectedFood() {
+      return foods().find(f => f.id === foodSelect.value);
+    }
+
+    function updatePreview() {
+      preview.replaceChildren();
+
+      const food = selectedFood();
+      const amount = Number(grams.value);
+
+      if (!food || !Number.isFinite(amount) || amount <= 0) {
+        preview.textContent =
+          "Seleciona um alimento e uma quantidade válida.";
+        return;
+      }
+
+      const result = lib.nutritionCalculate(food, amount);
+
+      preview.appendChild(el("b",
+        food.nome + " — " + amount + " g"
+      ));
+
+      preview.appendChild(el("p",
+        result.calorias + " kcal · " +
+        result.proteinas + " g proteínas · " +
+        result.hidratos + " g hidratos · " +
+        result.gorduras + " g gorduras"
+      ));
+    }
+
+    function updateFoods() {
+      foodSelect.replaceChildren();
+
+      const matching = foods().filter(f =>
+        f.categoria === category.value &&
+        f.subcategoria === subcategory.value
+      ).sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+
+      matching.forEach(food => {
+        const option = el("option", food.nome);
+        option.value = food.id;
+        foodSelect.appendChild(option);
+      });
+
+      if (!matching.length) {
+        const option = el("option", "Sem alimentos nesta categoria");
+        option.value = "";
+        foodSelect.appendChild(option);
+      }
+
+      updatePreview();
+    }
+
+    function updateSubcategories() {
+      subcategory.replaceChildren();
+
+      const group = lib.groups.find(g =>
+        g.nome === category.value
+      );
+
+      if (group) {
+        group.sub.forEach(name => {
+          const option = el("option", name);
+          option.value = name;
+          subcategory.appendChild(option);
+        });
+      }
+
+      updateFoods();
+    }
+
+    lib.groups.forEach(group => {
+      const option = el("option",
+        group.emoji + " " + group.nome
+      );
+      option.value = group.nome;
+      category.appendChild(option);
+    });
+
+    category.onchange = updateSubcategories;
+    subcategory.onchange = updateFoods;
+    foodSelect.onchange = updatePreview;
+    grams.oninput = updatePreview;
+
+    updateSubcategories();
+
+    btn(panel, "➕ Adicionar à refeição", () => {
+      const food = selectedFood();
+      const amount = Number(grams.value);
+
+      if (!food || !Number.isFinite(amount) || amount <= 0) {
+        alert("Seleciona um alimento e indica os gramas.");
+        return;
+      }
+
+      const result = lib.nutritionCalculate(food, amount);
+
+      /* Criar um alimento usando o editor existente */
+      addButton.click();
+
+      /* Localizar a refeição depois da atualização */
+      const buttons = [...area.querySelectorAll("button")]
+        .filter(b =>
+          b.textContent.trim() === "+ Adicionar alimento"
+        );
+
+      const targetButton = buttons[mealIndex];
+      if (!targetButton) {
+        alert("Não foi possível localizar a refeição.");
+        return;
+      }
+
+      const targetMeal = targetButton.parentElement;
+
+      const itemPanels = [...targetMeal.children]
+        .filter(node =>
+          node.classList &&
+          node.classList.contains("subpanel") &&
+          !node.classList.contains("life44picker")
+        );
+
+      const lastItem = itemPanels[itemPanels.length - 1];
+
+      if (!lastItem) {
+        alert("Não foi possível preencher o alimento.");
+        return;
+      }
+
+      const inputs = lastItem.querySelectorAll("input");
+
+      const values = [
+        food.nome,
+        amount + " g",
+        result.calorias,
+        result.proteinas,
+        result.hidratos,
+        result.gorduras,
+        ""
+      ];
+
+      if (inputs.length < 7) {
+        alert("O formato do editor alimentar mudou.");
+        return;
+      }
+
+      values.forEach((value, index) => {
+        inputs[index].value = value;
+      });
+
+      /* Atualizar os totais nutricionais */
+      inputs[2].dispatchEvent(
+        new Event("input", {bubbles: true})
+      );
+
+      alert(food.nome + " adicionado à refeição. " +
+        "Guarda o plano para conservar as alterações.");
+    });
+
+    mealBox.insertBefore(panel, addButton);
+  });
+}
+
+/* Recriar seletores quando o editor atualiza */
+const observer44 = new MutationObserver(() => {
+  if (document.querySelector(".life44picker")) {
+    const area = $("formArea");
+    const buttons = [...area.querySelectorAll("button")]
+      .filter(b =>
+        b.textContent.trim() === "+ Adicionar alimento"
+      );
+
+    if (buttons.every(b =>
+      b.parentElement.querySelector(".life44picker")
+    )) return;
+  }
+
+  const area = $("formArea");
+  if (!area) return;
+
+  if ([...area.querySelectorAll("button")].some(b =>
+    b.textContent.trim() === "+ Adicionar alimento"
+  )) {
+    addPickers();
+  }
+});
+
+observer44.observe($("formArea"), {
+  childList: true,
+  subtree: true
+});
+
+/* Abrir editor de planos alimentares */
+planForm = function(id, type, pid = null, template = null) {
+  originalPlanForm44(id, type, pid, template);
+
+  if (type === "planosAlimentares") {
+    addPickers();
+  }
+};
+
+/* Abrir editor de modelos alimentares */
+modelForm = function(key, id = null) {
+  originalModelForm44(key, id);
+
+  if (key === "modelosAlimentares") {
+    addPickers();
+  }
+};
+
+/* Versão */
+const subtitle44 = document.querySelector("header small");
+
+if (subtitle44) {
+  subtitle44.textContent =
+    "O teu centro de controlo pessoal · v4.4";
+}
+
+})();
+  /* LIFE 2000 v4.4 — CORREÇÃO DA INSERÇÃO */
+(function () {
+"use strict";
+
+const area = $("formArea");
+if (!area) return;
+
+area.addEventListener("click", function(event) {
+  const button = event.target.closest("button");
+  if (!button ||
+      button.textContent.trim() !== "➕ Adicionar à refeição") {
+    return;
+  }
+
+  const picker = button.closest(".life44picker");
+  if (!picker) return;
+
+  const meal = picker.parentElement;
+  const mealIndex = [...area.querySelectorAll(
+    "button"
+  )].filter(b =>
+    b.textContent.trim() === "+ Adicionar alimento"
+  ).findIndex(b => b.parentElement === meal);
+
+  if (mealIndex < 0) return;
+
+  const selects = picker.querySelectorAll("select");
+  const food = window.lifeFoodLibrary.getFoods()
+    .find(f => f.id === selects[2]?.value);
+
+  const gramsInput = picker.querySelector(
+    'input[type="number"]'
+  );
+  const grams = Number(gramsInput?.value);
+
+  if (!food || !Number.isFinite(grams) || grams <= 0) {
+    event.stopImmediatePropagation();
+    alert("Seleciona um alimento e indica os gramas.");
+    return;
+  }
+
+  /* Interromper a rotina anterior */
+  event.stopImmediatePropagation();
+
+  const result = window.lifeFoodLibrary
+    .nutritionCalculate(food, grams);
+
+  const addButton = [...area.querySelectorAll("button")]
+    .filter(b =>
+      b.textContent.trim() === "+ Adicionar alimento"
+    )[mealIndex];
+
+  addButton.click();
+
+  const updatedButtons = [...area.querySelectorAll("button")]
+    .filter(b =>
+      b.textContent.trim() === "+ Adicionar alimento"
+    );
+
+  const updatedMeal = updatedButtons[mealIndex]?.parentElement;
+  if (!updatedMeal) return;
+
+  const panels = [...updatedMeal.children].filter(node =>
+    node.classList?.contains("subpanel") &&
+    !node.classList.contains("life44picker")
+  );
+
+  const last = panels[panels.length - 1];
+  if (!last) return;
+
+  const inputs = last.querySelectorAll("input");
+  if (inputs.length < 7) return;
+
+  const values = [
+    food.nome,
+    grams + " g",
+    result.calorias,
+    result.proteinas,
+    result.hidratos,
+    result.gorduras,
+    ""
+  ];
+
+  values.forEach((value, index) => {
+    inputs[index].value = value;
+  });
+
+  inputs[2].dispatchEvent(
+    new Event("input", {bubbles: true})
+  );
+
+}, true);
+
+})();
 
 
 
