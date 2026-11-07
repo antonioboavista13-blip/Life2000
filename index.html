@@ -2506,8 +2506,71 @@ if (subtitle) {
 console.log("LIFE 2000 v4.5 — alimentos adicionados:", added);
 
 })();
+  
+/* LIFE 2000 v4.5.1 — CORREÇÃO DA GRAVAÇÃO */
+(function () {
+"use strict";
 
+const area = document.getElementById("formArea");
+if (!area) return;
 
+function syncNutritionFields() {
+  const mealButtons = [...area.querySelectorAll("button")]
+    .filter(b =>
+      b.textContent.trim() === "+ Adicionar alimento"
+    );
+
+  mealButtons.forEach(button => {
+    const meal = button.parentElement;
+    if (!meal) return;
+
+    const foodPanels = [...meal.children].filter(node =>
+      node.classList?.contains("subpanel") &&
+      !node.classList.contains("life44picker")
+    );
+
+    foodPanels.forEach(panel => {
+      const inputs = panel.querySelectorAll("input");
+
+      inputs.forEach(input => {
+        input.dispatchEvent(new Event("input", {
+          bubbles: true
+        }));
+        input.dispatchEvent(new Event("change", {
+          bubbles: true
+        }));
+      });
+    });
+  });
+}
+
+/* Sincronizar antes de guardar */
+area.addEventListener("click", function(event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  if (button.textContent.trim() !== "Guardar plano") {
+    return;
+  }
+
+  const hasNutritionEditor = [...area.querySelectorAll("button")]
+    .some(b =>
+      b.textContent.trim() === "+ Adicionar alimento"
+    );
+
+  if (!hasNutritionEditor) return;
+
+  syncNutritionFields();
+
+}, true);
+
+const subtitle = document.querySelector("header small");
+if (subtitle) {
+  subtitle.textContent =
+    "O teu centro de controlo pessoal · v4.5.1";
+}
+
+})();
 
 
 </script>
