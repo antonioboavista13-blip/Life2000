@@ -3082,6 +3082,166 @@ if(subtitle)subtitle.textContent=
 
 })();
 
+/* LIFE 2000 v4.7.1 — BACKUPS SEGUROS */
+(function () {
+"use strict";
+
+const BACKUP_KEYS = [
+  "agenda",
+  "alunos",
+  "treinos",
+  "nutricao",
+  "notas",
+  "modelosTreino",
+  "modelosAlimentares",
+  "bibliotecaAlimentos",
+  "bibliotecaExercicios"
+];
+
+settings = function () {
+  clear();
+
+  const area = $("formArea");
+  area.appendChild(el("h3", "Cópias de segurança"));
+  area.appendChild(el("p",
+    "Os dados são guardados neste dispositivo. " +
+    "Não existe sincronização automática."
+  ));
+
+  btn(area, "Exportar cópia JSON", () => {
+    const backup = {
+      app: "LIFE 2000",
+      version: "4.7.1",
+      exportedAt: new Date().toISOString(),
+      data: {}
+    };
+
+    BACKUP_KEYS.forEach(key => {
+      backup.data[key] = getData(key);
+    });
+
+    const blob = new Blob(
+      [JSON.stringify(backup, null, 2)],
+      {type: "application/json"}
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "life2000-backup.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  });
+
+  const file = field(
+    area, "Importar cópia JSON", "", "file"
+  );
+  file.accept = ".json,application/json";
+
+  btn(area, "Importar cópia de segurança", async () => {
+    if (!file.files || !file.files[0]) {
+      alert("Seleciona um ficheiro JSON.");
+      return;
+    }
+
+    let backup;
+
+    try {
+      backup = JSON.parse(await file.files[0].text());
+    } catch (error) {
+      alert("Não foi possível ler o ficheiro.");
+      return;
+    }
+
+    if (
+      backup.app !== "LIFE 2000" ||
+      !backup.data ||
+      typeof backup.data !== "object" ||
+      Array.isArray(backup.data)
+    ) {
+      alert("Esta cópia não pertence ao LIFE 2000.");
+      return;
+    }
+
+    const suppliedKeys = Object.keys(backup.data);
+
+    if (
+      !suppliedKeys.length ||
+      suppliedKeys.some(key =>
+        !BACKUP_KEYS.includes(key) ||
+        !Array.isArray(backup.data[key])
+      )
+    ) {
+      alert("A cópia contém dados incompatíveis.");
+      return;
+    }
+
+    const message =
+      "A cópia contém " + suppliedKeys.length +
+      " categorias de dados.\n\n" +
+      "As categorias presentes serão substituídas. " +
+      "As categorias ausentes serão preservadas.\n\n" +
+      "Queres continuar?";
+
+    if (!confirm(message)) return;
+
+    const previous = {};
+
+    BACKUP_KEYS.forEach(key => {
+      previous[key] = localStorage.getItem(
+        "life2000_" + key
+      );
+    });
+
+    try {
+      suppliedKeys.forEach(key => {
+        localStorage.setItem(
+          "life2000_" + key,
+          JSON.stringify(backup.data[key])
+        );
+      });
+    } catch (error) {
+      BACKUP_KEYS.forEach(key => {
+        try {
+          const old = previous[key];
+          if (old === null) {
+            localStorage.removeItem("life2000_" + key);
+          } else {
+            localStorage.setItem("life2000_" + key, old);
+          }
+        } catch (restoreError) {}
+      });
+
+      alert(
+        "Erro ao importar. Verifica os dados " +
+        "antes de voltar a tentar."
+      );
+      return;
+    }
+
+    alert("Cópia importada com sucesso.");
+    show("home");
+  });
+
+  area.appendChild(el("p",
+    "Guarda sempre uma cópia antes de importar. " +
+    "A importação substitui os dados das categorias " +
+    "presentes no ficheiro."
+  ));
+};
+
+const subtitle = document.querySelector("header small");
+
+if (subtitle) {
+  subtitle.textContent =
+    "O teu centro de controlo pessoal · v4.7.1";
+}
+
+})();
+
 
 </script>
 </body>
