@@ -1007,6 +1007,260 @@ if (subtitle) {
 }
 
 })();
+  
+/* LIFE 2000 v4.2 — PLANOS ORGANIZADOS */
+(function () {
+"use strict";
+
+function info(parent, label, value, unit = "") {
+  if (value === undefined || value === null ||
+      String(value).trim() === "") return;
+
+  const line = el("div");
+  line.style.margin = "5px 0";
+  line.style.fontSize = "14px";
+
+  const name = el("strong", label + ": ");
+  name.style.color = "#e3c18a";
+
+  line.appendChild(name);
+  line.appendChild(document.createTextNode(
+    String(value) + unit
+  ));
+  parent.appendChild(line);
+}
+
+function num(value) {
+  const n = Number(String(value ?? "0").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function nutritionTotals(blocks) {
+  const result = {
+    calorias: 0,
+    proteinas: 0,
+    hidratos: 0,
+    gorduras: 0
+  };
+
+  (blocks || []).forEach(block => {
+    (block.itens || []).forEach(item => {
+      Object.keys(result).forEach(key => {
+        result[key] += num(item[key]);
+      });
+    });
+  });
+
+  return result;
+}
+
+function fmt(value) {
+  return String(Math.round(value * 10) / 10);
+}
+
+function renderPlan(parent, plan, type) {
+  const card = el("div");
+  card.className = "subpanel";
+
+  const details = el("details");
+  details.style.width = "100%";
+
+  const heading = el("summary", plan.titulo || "Plano");
+  heading.style.color = "#e3c18a";
+  heading.style.fontSize = "18px";
+  heading.style.fontWeight = "700";
+  heading.style.cursor = "pointer";
+  heading.style.padding = "10px 0";
+
+  details.appendChild(heading);
+
+  const content = el("div");
+  content.style.padding = "8px 0";
+
+  if (plan.conteudo) {
+    const description = el("p", plan.conteudo);
+    description.style.whiteSpace = "pre-wrap";
+    content.appendChild(description);
+  }
+
+  if (plan.estruturado && Array.isArray(plan.blocos)) {
+    plan.blocos.forEach(block => {
+      const validItems = (block.itens || []).filter(item =>
+        item.nome && String(item.nome).trim()
+      );
+
+      if (!validItems.length) return;
+
+      const section = el("div");
+      section.className = "subpanel";
+
+      section.appendChild(el("h3", block.nome || "Bloco"));
+
+      validItems.forEach(item => {
+        const row = el("div");
+        row.className = "item";
+
+        row.appendChild(el("b", item.nome));
+
+        if (type === "planosAlimentares") {
+          info(row, "Quantidade", item.quantidade);
+          info(row, "Calorias", item.calorias, " kcal");
+          info(row, "Proteínas", item.proteinas, " g");
+          info(row, "Hidratos", item.hidratos, " g");
+          info(row, "Gorduras", item.gorduras, " g");
+        } else {
+          info(row, "Séries", item.series);
+          info(row, "Repetições / duração", item.reps);
+          info(row, "Carga", item.carga);
+          info(row, "Descanso", item.descanso);
+        }
+
+        info(row, "Observações", item.obs);
+        section.appendChild(row);
+      });
+
+      content.appendChild(section);
+    });
+
+    if (type === "planosAlimentares") {
+      const totals = nutritionTotals(plan.blocos);
+      const summary = el("div");
+      summary.className = "subpanel";
+
+      summary.appendChild(el("h3", "Total diário"));
+      info(summary, "Calorias", fmt(totals.calorias), " kcal");
+      info(summary, "Proteínas", fmt(totals.proteinas), " g");
+      info(summary, "Hidratos", fmt(totals.hidratos), " g");
+      info(summary, "Gorduras", fmt(totals.gorduras), " g");
+
+      summary.appendChild(el("small",
+        "Totais dos valores nutricionais preenchidos."
+      ));
+
+      content.appendChild(summary);
+    }
+  }
+
+  details.appendChild(content);
+  card.appendChild(details);
+  parent.appendChild(card);
+}
+
+profile = function(id) {
+  clear();
+
+  const student = getData("alunos").find(s => s.id === id);
+  if (!student) {
+    students();
+    return;
+  }
+
+  const a = $("formArea");
+  const list = $("items");
+
+  btn(a, "← Lista de alunos", students, "secondary");
+  a.appendChild(el("h2", student.nome));
+
+  [
+    ["Idade", student.idade ? student.idade + " anos" : "—"],
+    ["Altura", student.altura ? student.altura + " cm" : "—"],
+    ["Peso", student.peso ? student.peso + " kg" : "—"],
+    ["Objetivo", student.objetivo || "—"],
+    ["Observações", student.obs || "—"]
+  ].forEach(([label, value]) => {
+    const p = el("p");
+    p.appendChild(el("b", label + ": "));
+    p.appendChild(document.createTextNode(value));
+    a.appendChild(p);
+  });
+
+  const studentActions = actions(a);
+
+  btn(studentActions, "Editar ficha",
+    () => studentForm(id), "secondary");
+
+  btn(studentActions, "Eliminar aluno", () => {
+    if (!confirm("Eliminar aluno e todos os seus planos?")) return;
+
+    const data = getData("alunos").filter(s => s.id !== id);
+    if (saveData("alunos", data)) {
+      students();
+      stats();
+    }
+  }, "danger");
+
+  [
+    ["planosTreino", "🥊 Planos de treino"],
+    ["planosAlimentares", "🥗 Planos alimentares"]
+  ].forEach(([type, title]) => {
+    const section = el("div");
+    section.className = "panel";
+
+    section.appendChild(el("h3", title));
+
+    btn(section, "+ Criar plano",
+      () => planForm(id, type));
+
+    (student[type] || []).forEach(plan => {
+      const wrapper = el("div");
+      wrapper.style.marginTop = "14px";
+
+      renderPlan(wrapper, plan, type);
+
+      const ac = actions(wrapper);
+
+      btn(ac, "Editar", () => {
+        planForm(id, type, plan.id);
+      }, "secondary");
+
+      btn(ac, "Duplicar", () => {
+        const data = getData("alunos");
+        const s = data.find(x => x.id === id);
+        if (!s) return;
+
+        const original = (s[type] || []).find(
+          x => x.id === plan.id
+        );
+        if (!original) return;
+
+        const copy = JSON.parse(JSON.stringify(original));
+        copy.id = uid();
+        copy.titulo = (copy.titulo || "Plano") + " (cópia)";
+
+        s[type].push(copy);
+
+        if (saveData("alunos", data)) profile(id);
+      }, "secondary");
+
+      btn(ac, "Eliminar", () => {
+        if (!confirm("Eliminar este plano?")) return;
+
+        const data = getData("alunos");
+        const s = data.find(x => x.id === id);
+        if (!s) return;
+
+        s[type] = (s[type] || []).filter(
+          x => x.id !== plan.id
+        );
+
+        if (saveData("alunos", data)) profile(id);
+      }, "danger");
+
+      section.appendChild(wrapper);
+    });
+
+    list.appendChild(section);
+  });
+};
+
+const subtitle = document.querySelector("header small");
+if (subtitle) {
+  subtitle.textContent =
+    "O teu centro de controlo pessoal · v4.2";
+}
+
+})();
+
 
 
 </script>
