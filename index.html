@@ -4070,6 +4070,440 @@ if(subtitle49)
 
 })();
 
+/* ZERO v5.0 — AGENDA INTELIGENTE */
+(function(){
+'use strict';
+const KEY='agenda50';
+if(!keys.includes(KEY))keys.push(KEY);
+const previousShow=show,previousSettings=settings;
+const COLORS={
+ PT:'#3b82f6',
+ Treino:'#10b981',
+ Trabalho:'#f59e0b',
+ Pessoal:'#a78bfa',
+ Outro:'#94a3b8'
+};
+const WEEK=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+let cursor=new Date();
+let selected=new Date();
+let mode='month';
+
+function iso(d){
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fromISO(s){
+ const [y,m,d]=s.split('-').map(Number);
+ return new Date(y,m-1,d);
+}
+function addDays(d,n){
+ const r=new Date(d);
+ r.setDate(r.getDate()+n);
+ return r;
+}
+function monday(d){
+ const r=new Date(d);
+ r.setDate(r.getDate()-(r.getDay()+6)%7);
+ return r;
+}
+function pretty(d,options){
+ return d.toLocaleDateString('pt-PT',options);
+}
+function entries(){
+ return getData(KEY);
+}
+function occurrences(event,start,end){
+ const base=fromISO(event.date);
+ const out=[];
+ const repeat=event.repeat||'none';
+ let until=event.until?fromISO(event.until):addDays(base,366*3);
+ if(until>end)until=end;
+ if(base>end)return out;
+ if(repeat==='none'){
+  if(base>=start&&base<=end)out.push({...event,on:event.date});
+  return out;
+ }
+ if(repeat==='weekly'||repeat==='biweekly'){
+  let d=new Date(base);
+  const step=repeat==='weekly'?7:14;
+  if(d<start){
+   const diff=Math.floor((start-d)/86400000);
+   d=addDays(d,Math.max(0,Math.floor(diff/step))*step);
+  }
+  while(d<=until){
+   if(d>=start)out.push({...event,on:iso(d)});
+   d=addDays(d,step);
+  }
+ }else if(repeat==='daily'){
+  let d=base<start?start:base;
+  while(d<=until){
+   out.push({...event,on:iso(d)});
+   d=addDays(d,1);
+  }
+ }else if(repeat==='monthly'){
+  let i=0;
+  while(i<120){
+   const d=new Date(base.getFullYear(),base.getMonth()+i,base.getDate());
+   if(d.getDate()!==base.getDate()){i++;continue;}
+   if(d>until)break;
+   if(d>=start)out.push({...event,on:iso(d)});
+   i++;
+  }
+ }
+ return out;
+}
+function eventsBetween(start,end){
+ const all=[];
+ entries().forEach(e=>all.push(...occurrences(e,start,end)));
+ getData('agenda').forEach((e,i)=>{
+  if(!e.date)return;
+  const date=e.date.slice(0,10);
+  if(date>=iso(start)&&date<=iso(end)){
+   all.push({
+    id:'legacy_'+i,
+    title:e.title,
+    date,
+    on:date,
+    time:e.date.slice(11,16),
+    duration:60,
+    category:'Outro',
+    detail:e.detail||'',
+    legacy:true
+   });
+  }
+ });
+ return all.sort((a,b)=>
+  (a.on+' '+(a.time||'')).localeCompare(b.on+' '+(b.time||''))
+ );
+}
+function styleButton(b,active){
+ b.style.background=active?'#b94b50':'#555860';
+ b.style.color='#fff';
+}
+function calendar(){
+ current='agenda';
+ clear();
+ $('sectionTitle').textContent='📅 Agenda Inteligente';
+ const form=$('formArea'),list=$('items');
+ const toolbar=el('div');
+ toolbar.className='subpanel';
+ const top=actions(toolbar);
+ btn(top,'‹',()=>{
+  if(mode==='month')cursor.setMonth(cursor.getMonth()-1);
+  else cursor=addDays(cursor,mode==='week'?-7:-1);
+  calendar();
+ },'secondary');
+ const heading=el('b');
+ heading.style.flex='1';
+ heading.style.textAlign='center';
+ heading.style.alignSelf='center';
+ top.appendChild(heading);
+ btn(top,'›',()=>{
+  if(mode==='month')cursor.setMonth(cursor.getMonth()+1);
+  else cursor=addDays(cursor,mode==='week'?7:1);
+  calendar();
+ },'secondary');
+ const modes=actions(toolbar);
+ [['day','Dia'],['week','Semana'],['month','Mês']].forEach(([k,label])=>{
+  const b=btn(modes,label,()=>{
+   mode=k;
+   calendar();
+  });
+  styleButton(b,mode===k);
+ });
+ const controls=actions(toolbar);
+ btn(controls,'Hoje',()=>{
+  cursor=new Date();
+  selected=new Date();
+  calendar();
+ },'secondary');
+ btn(controls,'+ Nova marcação',()=>editEvent());
+ form.appendChild(toolbar);
+
+ const view=el('div');
+ view.className='subpanel';
+ form.appendChild(view);
+ const selectedTitle=el('h3');
+ list.appendChild(selectedTitle);
+ const dayList=el('div');
+ list.appendChild(dayList);
+
+ function selectDay(d){
+  selected=new Date(d);
+  render();
+ }
+ function dayCell(d,dim=false){
+  const b=el('button');
+  b.textContent=String(d.getDate());
+  b.style.padding='12px 3px';
+  b.style.borderRadius='10px';
+  b.style.background=iso(d)===iso(selected)?'#b94b50':'#343740';
+  b.style.color=dim?'#999':'white';
+  b.style.position='relative';
+  const count=eventsBetween(d,d).length;
+  if(count){
+   const dot=el('span','•');
+   dot.style.display='block';
+   dot.style.color='#f0c078';
+   dot.style.lineHeight='6px';
+   b.appendChild(dot);
+  }
+  b.onclick=()=>selectDay(d);
+  return b;
+ }
+ function render(){
+  view.replaceChildren();
+  const label=mode==='month'?
+   pretty(cursor,{month:'long',year:'numeric'}):
+   mode==='week'?
+   pretty(monday(cursor),{day:'numeric',month:'short'})+' — '+
+   pretty(addDays(monday(cursor),6),{day:'numeric',month:'short'}):
+   pretty(cursor,{day:'numeric',month:'long',year:'numeric'});
+  heading.textContent=label.charAt(0).toUpperCase()+label.slice(1);
+
+  if(mode==='month'){
+   const first=new Date(cursor.getFullYear(),cursor.getMonth(),1);
+   const start=monday(first);
+   const grid=el('div');
+   grid.style.display='grid';
+   grid.style.gridTemplateColumns='repeat(7,minmax(0,1fr))';
+   grid.style.gap='5px';
+   WEEK.forEach(w=>{
+    const x=el('small',w);
+    x.style.textAlign='center';
+    grid.appendChild(x);
+   });
+   for(let i=0;i<42;i++){
+    const d=addDays(start,i);
+    grid.appendChild(dayCell(d,d.getMonth()!==cursor.getMonth()));
+   }
+   view.appendChild(grid);
+  }else if(mode==='week'){
+   const grid=el('div');
+   grid.style.display='grid';
+   grid.style.gridTemplateColumns='repeat(7,minmax(0,1fr))';
+   grid.style.gap='5px';
+   const start=monday(cursor);
+   for(let i=0;i<7;i++){
+    const d=addDays(start,i);
+    const col=el('div');
+    col.style.textAlign='center';
+    col.appendChild(el('small',WEEK[i]));
+    col.appendChild(dayCell(d));
+    grid.appendChild(col);
+   }
+   view.appendChild(grid);
+  }else{
+   view.appendChild(el('h3',pretty(cursor,{
+    weekday:'long',day:'numeric',month:'long'
+   })));
+   selected=new Date(cursor);
+  }
+
+  selectedTitle.textContent=pretty(selected,{
+   weekday:'long',day:'numeric',month:'long'
+  });
+  dayList.replaceChildren();
+  const day=eventsBetween(selected,selected);
+  if(!day.length)dayList.appendChild(el('p','Sem marcações neste dia.'));
+  day.forEach(e=>{
+   const card=el('div');
+   card.className='subpanel';
+   card.style.borderLeft='4px solid '+(COLORS[e.category]||COLORS.Outro);
+   const title=el('b',(e.time?e.time+' · ':'')+e.title);
+   card.appendChild(title);
+   card.appendChild(el('p',e.category+(e.duration?' · '+e.duration+' min':'')));
+   if(e.studentId){
+    const student=getData('alunos').find(s=>s.id===e.studentId);
+    if(student)card.appendChild(el('p','👤 '+student.nome));
+   }
+   if(e.detail)card.appendChild(el('p',e.detail));
+   const ac=actions(card);
+   if(!e.legacy){
+    btn(ac,'Editar',()=>editEvent(e.id),'secondary');
+    btn(ac,'Eliminar',()=>{
+     if(!confirm('Eliminar esta marcação?'))return;
+     if(saveData(KEY,entries().filter(x=>x.id!==e.id)))calendar();
+    },'danger');
+   }else{
+    card.appendChild(el('small','Registo da agenda antiga.'));
+   }
+   dayList.appendChild(card);
+  });
+ }
+ render();
+}
+function editEvent(id=null){
+ clear();
+ const a=$('formArea');
+ const old=entries().find(e=>e.id===id)||{};
+ btn(a,'← Calendário',calendar,'secondary');
+ a.appendChild(el('h3',id?'Editar marcação':'Nova marcação'));
+ const title=field(a,'Título',old.title||'');
+ const date=field(a,'Data',old.date||iso(selected),'date');
+ const time=field(a,'Hora',old.time||'09:00','time');
+ const duration=field(a,'Duração (minutos)',old.duration||60,'number');
+ duration.min='1';
+ a.appendChild(el('label','Categoria'));
+ const category=el('select');
+ Object.keys(COLORS).forEach(k=>{
+  const o=el('option',k);
+  o.value=k;
+  category.appendChild(o);
+ });
+ category.value=old.category||'PT';
+ a.appendChild(category);
+ a.appendChild(el('label','Aluno associado (opcional)'));
+ const student=el('select');
+ const empty=el('option','Sem aluno associado');
+ empty.value='';
+ student.appendChild(empty);
+ getData('alunos').forEach(s=>{
+  const o=el('option',s.nome);
+  o.value=s.id;
+  student.appendChild(o);
+ });
+ student.value=old.studentId||'';
+ a.appendChild(student);
+ a.appendChild(el('label','Repetição'));
+ const repeat=el('select');
+ [
+  ['none','Não repetir'],['daily','Todos os dias'],
+  ['weekly','Todas as semanas'],['biweekly','De 2 em 2 semanas'],
+  ['monthly','Todos os meses']
+ ].forEach(([v,t])=>{
+  const o=el('option',t);
+  o.value=v;
+  repeat.appendChild(o);
+ });
+ repeat.value=old.repeat||'none';
+ a.appendChild(repeat);
+ const until=field(a,'Repetir até (opcional)',old.until||'','date');
+ const detail=memo(a,'Observações',old.detail||'');
+ const ac=actions(a);
+ btn(ac,'Guardar marcação',()=>{
+  if(!title.value.trim()||!date.value||!time.value)
+   return alert('Preenche título, data e hora.');
+  const minutes=Number(duration.value);
+  if(!Number.isFinite(minutes)||minutes<=0)
+   return alert('Duração inválida.');
+  if(until.value&&until.value<date.value)
+   return alert('A data final não pode ser anterior à inicial.');
+  const all=entries();
+  const obj={
+   id:id||uid(),
+   title:title.value.trim(),
+   date:date.value,
+   time:time.value,
+   duration:minutes,
+   category:category.value,
+   studentId:student.value,
+   repeat:repeat.value,
+   until:repeat.value==='none'?'':until.value,
+   detail:detail.value.trim()
+  };
+  const index=all.findIndex(e=>e.id===id);
+  if(index>=0)all[index]=obj;
+  else all.push(obj);
+  if(saveData(KEY,all)){
+   selected=fromISO(date.value);
+   cursor=new Date(selected);
+   calendar();
+  }
+ });
+ btn(ac,'Cancelar',calendar,'secondary');
+}
+show=function(k){
+ if(k==='agenda'){
+  $('home').classList.add('hidden');
+  $('editor').classList.remove('hidden');
+  calendar();
+  stats();
+  return;
+ }
+ previousShow(k);
+};
+settings=function(){
+ previousSettings();
+ const area=$('formArea');
+ const exportButton=[...area.querySelectorAll('button')]
+  .find(b=>b.textContent.trim()==='Exportar cópia JSON');
+ if(exportButton){
+  exportButton.onclick=()=>{
+   const data={
+    app:'LIFE 2000',
+    version:'5.0',
+    exportedAt:new Date().toISOString(),
+    data:{}
+   };
+   [
+    'agenda','agenda50','alunos','treinos','nutricao','notas',
+    'modelosTreino','modelosAlimentares',
+    'bibliotecaAlimentos','bibliotecaExercicios',
+    'mensalidades49','despesas49'
+   ].forEach(k=>data.data[k]=getData(k));
+   const blob=new Blob([JSON.stringify(data,null,2)],{
+    type:'application/json'
+   });
+   const url=URL.createObjectURL(blob);
+   const link=el('a');
+   link.href=url;
+   link.download='zero-backup-v50.json';
+   document.body.appendChild(link);
+   link.click();
+   link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),3000);
+  };
+ }
+ const importButton=[...area.querySelectorAll('button')]
+  .find(b=>b.textContent.trim()==='Importar cópia de segurança');
+ const file=area.querySelector('input[type="file"]');
+ if(importButton&&file){
+  importButton.onclick=async()=>{
+   if(!file.files?.[0])return alert('Seleciona um ficheiro JSON.');
+   let backup;
+   try{backup=JSON.parse(await file.files[0].text());}
+   catch{return alert('Ficheiro inválido.');}
+   const allowed=[
+    'agenda','agenda50','alunos','treinos','nutricao','notas',
+    'modelosTreino','modelosAlimentares',
+    'bibliotecaAlimentos','bibliotecaExercicios',
+    'mensalidades49','despesas49'
+   ];
+   if(backup.app!=='LIFE 2000'||!backup.data||
+    typeof backup.data!=='object'||Array.isArray(backup.data))
+    return alert('Cópia incompatível.');
+   const supplied=Object.keys(backup.data);
+   if(!supplied.length||supplied.some(k=>
+    !allowed.includes(k)||!Array.isArray(backup.data[k])))
+    return alert('Dados incompatíveis.');
+   if(!confirm('Substituir as categorias presentes na cópia?'))return;
+   const old={};
+   allowed.forEach(k=>old[k]=localStorage.getItem('life2000_'+k));
+   try{
+    supplied.forEach(k=>localStorage.setItem(
+     'life2000_'+k,JSON.stringify(backup.data[k])
+    ));
+   }catch{
+    allowed.forEach(k=>{
+     try{
+      if(old[k]===null)localStorage.removeItem('life2000_'+k);
+      else localStorage.setItem('life2000_'+k,old[k]);
+     }catch{}
+    });
+    return alert('Erro ao importar.');
+   }
+   alert('Cópia importada.');
+   show('home');
+  };
+ }
+ area.appendChild(el('p',
+  'ZERO v5.0: as marcações da Agenda Inteligente estão incluídas nas cópias JSON.'
+ ));
+};
+const subtitle=document.querySelector('header small');
+if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.0';
+})();
+
 </script>
 </body>
 </html>
