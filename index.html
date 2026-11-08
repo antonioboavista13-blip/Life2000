@@ -4504,6 +4504,337 @@ const subtitle=document.querySelector('header small');
 if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.0';
 })();
 
+/* ZERO v5.1 — AGENDA PRO */
+(function(){
+'use strict';
+
+const KEY51='agenda50';
+const previousShow51=show;
+const previousStats51=stats;
+const area51=$('formArea');
+
+function date51(s){
+ const [y,m,d]=String(s).slice(0,10).split('-').map(Number);
+ return new Date(y,m-1,d);
+}
+function iso51(d){
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function add51(d,n){
+ const x=new Date(d);
+ x.setDate(x.getDate()+n);
+ return x;
+}
+function minutes51(t){
+ const [h,m]=String(t||'00:00').split(':').map(Number);
+ return h*60+m;
+}
+function format51(d){
+ return date51(d).toLocaleDateString('pt-PT',{
+  weekday:'short',day:'numeric',month:'short'
+ });
+}
+function active51(e,day){
+ if(!e.date||day<e.date)return false;
+ if(e.until&&day>e.until)return false;
+ const start=date51(e.date),end=date51(day);
+ const days=Math.round((end-start)/86400000);
+ switch(e.repeat||'none'){
+  case 'daily':return true;
+  case 'weekly':return days%7===0;
+  case 'biweekly':return days%14===0;
+  case 'monthly':
+   return start.getDate()===end.getDate();
+  default:return day===e.date;
+ }
+}
+function appointments51(day){
+ const result=[];
+ getData(KEY51).forEach(e=>{
+  if(active51(e,day))result.push({...e});
+ });
+ getData('agenda').forEach(e=>{
+  if(String(e.date||'').slice(0,10)===day){
+   result.push({
+    title:e.title,
+    time:String(e.date).slice(11,16),
+    duration:60,
+    detail:e.detail||'',
+    category:'Outro',
+    legacy:true
+   });
+  }
+ });
+ return result.sort((a,b)=>
+  minutes51(a.time)-minutes51(b.time)
+ );
+}
+function studentName51(id){
+ return getData('alunos').find(s=>s.id===id)?.nome||'';
+}
+function eventCard51(parent,e,day){
+ const box=el('div');
+ box.className='subpanel';
+ box.style.borderLeft='4px solid #b94b50';
+ box.appendChild(el('b',
+  format51(day)+' · '+(e.time||'—')+' · '+(e.title||'Marcação')
+ ));
+ const details=[
+  e.category||'Outro',
+  e.duration?e.duration+' min':'',
+  e.studentId?studentName51(e.studentId):''
+ ].filter(Boolean).join(' · ');
+ box.appendChild(el('p',details));
+ if(e.detail)box.appendChild(el('p',e.detail));
+ parent.appendChild(box);
+}
+function upcoming51(studentId,query,days=365){
+ const result=[];
+ const today=new Date();
+ today.setHours(0,0,0,0);
+ for(let i=0;i<days;i++){
+  const day=iso51(add51(today,i));
+  appointments51(day).forEach(e=>{
+   if(studentId&&e.studentId!==studentId)return;
+   if(query&&![
+    e.title,e.detail,studentName51(e.studentId)
+   ].join(' ').toLowerCase().includes(query))return;
+   result.push({event:e,day});
+  });
+ }
+ return result;
+}
+function install51(){
+ if(current!=='agenda')return;
+ const area=$('formArea');
+ if(!area)return;
+ if(![...area.querySelectorAll('button')]
+   .some(b=>b.textContent.trim()==='+ Nova marcação'))return;
+ if(area.querySelector('#zeroAgendaPro51'))return;
+
+ const panel=el('div');
+ panel.id='zeroAgendaPro51';
+ panel.className='subpanel';
+ panel.appendChild(el('h3','🔎 Pesquisa e agenda diária'));
+
+ const students=getData('alunos');
+ panel.appendChild(el('label','Filtrar por aluno'));
+ const select=el('select');
+ const empty=el('option','Todos os alunos');
+ empty.value='';
+ select.appendChild(empty);
+ students.slice().sort((a,b)=>
+  a.nome.localeCompare(b.nome,'pt')
+ ).forEach(s=>{
+  const option=el('option',s.nome);
+  option.value=s.id;
+  select.appendChild(option);
+ });
+ panel.appendChild(select);
+
+ const search=field(panel,'Pesquisar marcação');
+ search.placeholder='Nome, título ou observações';
+
+ const controls=actions(panel);
+ const results=el('div');
+ panel.appendChild(results);
+
+ function render(){
+  results.replaceChildren();
+  const matches=upcoming51(
+   select.value,
+   search.value.trim().toLowerCase()
+  );
+  const title=el('p',
+   matches.length+' marcações encontradas nos próximos 365 dias'
+  );
+  results.appendChild(title);
+
+  if(!matches.length){
+   results.appendChild(el('p','Nenhuma marcação encontrada.'));
+   return;
+  }
+
+  let limit=10;
+  const content=el('div');
+  results.appendChild(content);
+
+  function draw(){
+   content.replaceChildren();
+   matches.slice(0,limit).forEach(x=>
+    eventCard51(content,x.event,x.day)
+   );
+  }
+  draw();
+
+  if(matches.length>10){
+   const more=btn(results,'Mostrar mais',()=>{
+    limit+=20;
+    draw();
+    if(limit>=matches.length)more.remove();
+   },'secondary');
+  }
+ }
+
+ btn(controls,'Pesquisar',render,'secondary');
+ btn(controls,'Limpar filtros',()=>{
+  select.value='';
+  search.value='';
+  results.replaceChildren();
+ },'secondary');
+ btn(controls,'Compromissos de hoje',()=>{
+  results.replaceChildren();
+  const today=iso51(new Date());
+  const events=appointments51(today)
+   .filter(e=>!select.value||e.studentId===select.value);
+  results.appendChild(el('h3','Hoje — '+format51(today)));
+  if(!events.length){
+   results.appendChild(el('p','Sem compromissos para hoje.'));
+  }
+  events.forEach(e=>eventCard51(results,e,today));
+ },'secondary');
+
+ select.onchange=render;
+ search.onkeydown=e=>{
+  if(e.key==='Enter')render();
+ };
+
+ const toolbar=area.firstElementChild;
+ if(toolbar)toolbar.after(panel);
+ else area.appendChild(panel);
+}
+
+/* Aviso de conflitos antes de guardar */
+let editing51=null;
+
+area51.addEventListener('click',event=>{
+ const button=event.target.closest('button');
+ if(!button)return;
+
+ const text=button.textContent.trim();
+
+ if(text==='Editar'&&current==='agenda'){
+  const card=button.closest('.subpanel');
+  const heading=card?.querySelector('b')?.textContent||'';
+  const events=getData(KEY51);
+  const match=events.find(e=>
+   heading.includes(e.title)&&heading.startsWith(e.time+' ·')
+  );
+  editing51=match?.id||null;
+ }
+
+ if(text==='+ Nova marcação'){
+  editing51=null;
+ }
+
+ if(text!=='Guardar marcação'||current!=='agenda')return;
+
+ const fields=[...area51.querySelectorAll('input')];
+ const title=fields.find(x=>x.type==='text')?.value.trim()||'';
+ const day=fields.find(x=>x.type==='date')?.value;
+ const time=fields.find(x=>x.type==='time')?.value;
+ const duration=Number(fields.find(x=>x.type==='number')?.value);
+
+ if(!title||!day||!time||
+    !Number.isFinite(duration)||duration<=0)return;
+
+ const start=minutes51(time),end=start+duration;
+ const repeat=area51.querySelector('select');
+ const repeated=repeat?
+  [...area51.querySelectorAll('select')]
+   .find(s=>[...s.options].some(o=>o.value==='weekly')):null;
+ const until=fields.filter(x=>x.type==='date')[1]?.value||'';
+
+ const candidate={
+  date:day,time,duration,
+  repeat:repeated?.value||'none',
+  until
+ };
+
+ const horizon=candidate.repeat==='none'?1:365;
+ const conflicts=[];
+ const startDate=date51(day);
+
+ for(let i=0;i<horizon;i++){
+  const occurrence=iso51(add51(startDate,i));
+  if(!active51(candidate,occurrence))continue;
+
+  appointments51(occurrence).forEach(e=>{
+   if(editing51&&e.id===editing51)return;
+   const otherStart=minutes51(e.time);
+   const otherEnd=otherStart+Number(e.duration||60);
+   if(start<otherEnd&&end>otherStart){
+    conflicts.push({
+     day:occurrence,
+     event:e
+    });
+   }
+  });
+  if(conflicts.length>=3)break;
+ }
+
+ if(!conflicts.length){
+  editing51=null;
+  return;
+ }
+
+ const details=conflicts.map(c=>
+  format51(c.day)+' às '+c.event.time+
+  ' — '+c.event.title
+ ).join('\n');
+
+ const proceed=confirm(
+  '⚠️ ATENÇÃO: HORÁRIOS SOBREPOSTOS\n\n'+
+  'Encontrámos '+conflicts.length+
+  ' conflito(s), entre os primeiros verificados:\n\n'+
+  details+
+  '\n\nQueres guardar a marcação na mesma?'
+ );
+
+ if(!proceed){
+  event.preventDefault();
+  event.stopImmediatePropagation();
+ }else{
+  editing51=null;
+ }
+},true);
+
+/* Melhorar contador da página inicial */
+stats=function(){
+ previousStats51();
+ const old=getData('agenda').length;
+ const modern=getData(KEY51).length;
+ $('totalAgenda').textContent=old+modern;
+};
+
+/* Integrar na Agenda sem apagar a v5.0 */
+show=function(k){
+ previousShow51(k);
+ if(k==='agenda'){
+  editing51=null;
+  install51();
+ }
+};
+
+/* Reinserir filtros após mudar de dia ou mês */
+let scheduled51=false;
+new MutationObserver(()=>{
+ if(scheduled51||current!=='agenda')return;
+ scheduled51=true;
+ requestAnimationFrame(()=>{
+  scheduled51=false;
+  install51();
+ });
+}).observe(area51,{childList:true,subtree:true});
+
+const subtitle51=document.querySelector('header small');
+if(subtitle51){
+ subtitle51.textContent=
+  'O teu centro de controlo pessoal · v5.1';
+}
+stats();
+})();
+
 </script>
 </body>
 </html>
