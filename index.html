@@ -4835,6 +4835,153 @@ if(subtitle51){
 stats();
 })();
 
+/* ZERO v5.2.1 — TESTE DE VOZ */
+(function(){
+'use strict';
+
+const previousShow521 = show;
+
+function voice521(){
+ current='assistente';
+ clear();
+ $('sectionTitle').textContent='🎙️ Assistente ZERO';
+
+ const area=$('formArea');
+ const results=$('items');
+
+ area.appendChild(el('h3','Falar com a ZERO'));
+ area.appendChild(el('p',
+  'Carrega no microfone e diz uma frase. '+
+  'A ZERO vai tentar transformá-la em texto.'
+ ));
+
+ const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+ const status=el('p','Pronto para começar.');
+ status.style.textAlign='center';
+ status.style.fontWeight='700';
+
+ const transcript=memo(area,'O que a ZERO ouviu','');
+ transcript.placeholder='O texto reconhecido aparece aqui.';
+
+ const controls=actions(area);
+
+ if(!SpeechRecognition){
+  status.textContent=
+   'O reconhecimento de voz não está disponível neste navegador.';
+
+  area.appendChild(status);
+
+  results.appendChild(el('p',
+   'Podes utilizar o microfone do teclado do iPhone '+
+   'para ditar texto. Vamos testar outra solução '+
+   'se o Safari não suportar esta funcionalidade.'
+  ));
+  return;
+ }
+
+ let recognition=null;
+ let listening=false;
+
+ const mic=btn(controls,'🎙️ Falar com a ZERO',()=>{
+  if(listening){
+   recognition?.stop();
+   return;
+  }
+
+  try{
+   recognition=new SpeechRecognition();
+   recognition.lang='pt-PT';
+   recognition.continuous=false;
+   recognition.interimResults=true;
+   recognition.maxAlternatives=1;
+
+   recognition.onstart=()=>{
+    listening=true;
+    mic.textContent='⏹️ Parar gravação';
+    status.textContent='🔴 A ouvir...';
+   };
+
+   recognition.onresult=event=>{
+    let text='';
+    for(let i=0;i<event.results.length;i++){
+     text+=event.results[i][0].transcript+' ';
+    }
+    transcript.value=text.trim();
+    status.textContent='A reconhecer a tua voz...';
+   };
+
+   recognition.onerror=event=>{
+    const errors={
+     'not-allowed':'Permissão do microfone recusada.',
+     'audio-capture':'Não foi possível aceder ao microfone.',
+     'no-speech':'Não foi detetada nenhuma fala.',
+     'network':'Erro de rede no reconhecimento de voz.',
+     'service-not-allowed':'Serviço de voz não autorizado.',
+     'language-not-supported':'Idioma não suportado.'
+    };
+    status.textContent=
+     errors[event.error]||'Erro: '+event.error;
+   };
+
+   recognition.onend=()=>{
+    listening=false;
+    mic.textContent='🎙️ Falar com a ZERO';
+    if(status.textContent==='🔴 A ouvir...'||
+       status.textContent==='A reconhecer a tua voz...'){
+     status.textContent=transcript.value.trim()
+      ?'✅ Voz reconhecida!'
+      :'Reconhecimento terminado sem texto.';
+    }
+   };
+
+   transcript.value='';
+   recognition.start();
+
+  }catch(error){
+   listening=false;
+   mic.textContent='🎙️ Falar com a ZERO';
+   status.textContent='Não foi possível iniciar o reconhecimento.';
+  }
+ });
+
+ btn(controls,'Limpar texto',()=>{
+  transcript.value='';
+  status.textContent='Pronto para começar.';
+ },'secondary');
+
+ area.appendChild(status);
+
+ results.appendChild(el('p',
+  'Teste: diz «ZERO, mostra-me os compromissos de amanhã».'
+ ));
+ results.appendChild(el('small',
+  'Nesta versão a frase é apenas transcrita. '+
+  'Nenhum comando é executado nem são alterados dados.'
+ ));
+}
+
+show=function(k){
+ if(k==='assistente'){
+  $('home').classList.add('hidden');
+  $('editor').classList.remove('hidden');
+  voice521();
+  stats();
+  return;
+ }
+ previousShow521(k);
+};
+
+const subtitle521=document.querySelector('header small');
+if(subtitle521){
+ subtitle521.textContent=
+  'O teu centro de controlo pessoal · v5.2.1';
+}
+
+})();
+
 </script>
 </body>
 </html>
