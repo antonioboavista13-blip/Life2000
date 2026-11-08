@@ -4982,6 +4982,393 @@ if(subtitle521){
 
 })();
 
+/* ZERO v5.2.2 — COMANDOS INTELIGENTES */
+(function(){
+'use strict';
+
+const previousShow522=show;
+
+function normalize522(value){
+ return String(value||'')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase()
+  .replace(/[.,!?]/g,' ')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
+function iso522(date){
+ return date.getFullYear()+'-'+
+  String(date.getMonth()+1).padStart(2,'0')+'-'+
+  String(date.getDate()).padStart(2,'0');
+}
+
+function day522(offset){
+ const d=new Date();
+ d.setHours(12,0,0,0);
+ d.setDate(d.getDate()+offset);
+ return iso522(d);
+}
+
+function dateLabel522(value){
+ const [y,m,d]=value.split('-').map(Number);
+ return new Date(y,m-1,d).toLocaleDateString(
+  'pt-PT',{
+   weekday:'long',
+   day:'numeric',
+   month:'long',
+   year:'numeric'
+  }
+ );
+}
+
+function eventOn522(event,day){
+ if(!event.date||day<event.date)return false;
+ if(event.until&&day>event.until)return false;
+
+ const startParts=event.date.split('-').map(Number);
+ const endParts=day.split('-').map(Number);
+
+ const start=Date.UTC(...[
+  startParts[0],startParts[1]-1,startParts[2]
+ ]);
+ const end=Date.UTC(...[
+  endParts[0],endParts[1]-1,endParts[2]
+ ]);
+
+ const diff=Math.round((end-start)/86400000);
+
+ switch(event.repeat||'none'){
+  case 'daily':return true;
+  case 'weekly':return diff%7===0;
+  case 'biweekly':return diff%14===0;
+  case 'monthly':
+   return startParts[2]===endParts[2];
+  default:return event.date===day;
+ }
+}
+
+function events522(day){
+ const result=[];
+
+ getData('agenda50').forEach(event=>{
+  if(eventOn522(event,day)){
+   result.push(event);
+  }
+ });
+
+ getData('agenda').forEach(event=>{
+  if(String(event.date||'').slice(0,10)===day){
+   result.push({
+    title:event.title,
+    time:String(event.date).slice(11,16),
+    category:'Outro',
+    detail:event.detail||''
+   });
+  }
+ });
+
+ return result.sort((a,b)=>
+  String(a.time||'').localeCompare(
+   String(b.time||'')
+  )
+ );
+}
+
+function extractDate522(command){
+ if(/\bdepois de amanha\b/.test(command)){
+  return day522(2);
+ }
+ if(/\bamanha\b/.test(command)){
+  return day522(1);
+ }
+ if(/\bhoje\b/.test(command)){
+  return day522(0);
+ }
+
+ const match=command.match(
+  /\b(\d{1,2})\s*(?:de\s*)?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s*(?:de\s*)?(\d{4}))?\b/
+ );
+
+ if(!match)return null;
+
+ const months=[
+  'janeiro','fevereiro','marco','abril',
+  'maio','junho','julho','agosto',
+  'setembro','outubro','novembro','dezembro'
+ ];
+
+ const day=Number(match[1]);
+ const month=months.indexOf(match[2]);
+ const year=match[3]?
+  Number(match[3]):new Date().getFullYear();
+
+ const date=new Date(year,month,day);
+
+ if(date.getFullYear()!==year||
+    date.getMonth()!==month||
+    date.getDate()!==day){
+  return null;
+ }
+
+ return iso522(date);
+}
+
+function install522(){
+ if(current!=='assistente')return;
+
+ const area=$('formArea');
+ const list=$('items');
+
+ if(area.querySelector('#zeroCommands522'))return;
+
+ const panel=el('div');
+ panel.id='zeroCommands522';
+ panel.className='subpanel';
+
+ panel.appendChild(el('h3','🧠 Comandos Inteligentes'));
+
+ panel.appendChild(el('p',
+  'Fala com a ZERO ou escreve um comando.'
+ ));
+
+ const examples=el('p',
+  'Experimenta: "Compromissos de amanhã", '+
+  '"Quantos alunos tenho?" ou "Procura o aluno João".'
+ );
+ panel.appendChild(examples);
+
+ const controls=actions(panel);
+
+ const output=el('div');
+ output.className='subpanel';
+ output.appendChild(el('p','À espera de um comando.'));
+
+ panel.appendChild(output);
+
+ const transcript=[...area.querySelectorAll('textarea')][0];
+
+ function message(text){
+  output.replaceChildren();
+  output.appendChild(el('p',text));
+ }
+
+ function answer(commandText){
+  const command=normalize522(commandText)
+   .replace(/^zero[\s,]+/,'')
+   .trim();
+
+  if(!command){
+   message('Primeiro, diz ou escreve um comando.');
+   return;
+  }
+
+  output.replaceChildren();
+
+  const isAgenda=
+   /\bagenda\b|\bcompromissos?\b|\bmarcacoes?\b/.test(command);
+
+  const isStudents=
+   /\balunos?\b|\bestudantes?\b/.test(command);
+
+  if(isAgenda){
+   const day=extractDate522(command);
+
+   if(!day){
+    message(
+     'Indica uma data: hoje, amanhã, depois de amanhã '+
+     'ou, por exemplo, 12 de novembro.'
+    );
+    return;
+   }
+
+   output.appendChild(el('h3',
+    '📅 '+dateLabel522(day)
+   ));
+
+   const events=events522(day);
+
+   if(!events.length){
+    output.appendChild(el('p',
+     'Não tens compromissos registados para este dia.'
+    ));
+    return;
+   }
+
+   output.appendChild(el('p',
+    'Encontrei '+events.length+' compromisso(s).'
+   ));
+
+   events.forEach(event=>{
+    const card=el('div');
+    card.className='item';
+
+    card.appendChild(el('b',
+     (event.time||'Sem hora')+
+     ' — '+(event.title||'Compromisso')
+    ));
+
+    const student=getData('alunos')
+     .find(s=>s.id===event.studentId);
+
+    if(student){
+     card.appendChild(el('p','👤 '+student.nome));
+    }
+
+    if(event.category){
+     card.appendChild(el('p',event.category));
+    }
+
+    if(event.detail){
+     card.appendChild(el('p',event.detail));
+    }
+
+    output.appendChild(card);
+   });
+
+   return;
+  }
+
+  if(isStudents){
+   const students=getData('alunos');
+
+   if(/\bquantos\b|\bnumero\b|\btotal\b/.test(command)){
+    message(
+     'Tens '+students.length+
+     ' aluno(s) registado(s) na ZERO.'
+    );
+    return;
+   }
+
+   const name=command
+    .replace(/\b(?:procura|procurar|pesquisa|pesquisar|encontra|encontrar|mostra|mostrar|abre|abrir|quero|ver|a|o|os|as|me|ficha|do|da|de|um|uma|aluno|aluna|alunos|alunas)\b/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+   if(!name){
+    message('Diz o nome do aluno que queres procurar.');
+    return;
+   }
+
+   const matches=students.filter(student=>
+    normalize522(student.nome).includes(name)
+   );
+
+   if(!matches.length){
+    message('Não encontrei nenhum aluno com esse nome.');
+    return;
+   }
+
+   output.appendChild(el('h3','👥 Alunos encontrados'));
+
+   matches.slice(0,10).forEach(student=>{
+    const card=el('div');
+    card.className='item';
+
+    card.appendChild(el('b',student.nome));
+
+    const details=[
+     student.idade?student.idade+' anos':'',
+     student.objetivo||''
+    ].filter(Boolean).join(' · ');
+
+    if(details)card.appendChild(el('p',details));
+
+    btn(card,'Abrir ficha',()=>{
+     show('alunos');
+     profile(student.id);
+    },'secondary');
+
+    output.appendChild(card);
+   });
+
+   return;
+  }
+
+  message(
+   'Ainda não reconheço esse comando. '+
+   'Experimenta consultar a agenda ou procurar alunos.'
+  );
+ }
+
+ const interpret=btn(
+  controls,
+  '🧠 Interpretar comando',
+  ()=>answer(transcript?.value||'')
+ );
+
+ btn(controls,'Exemplos',()=>{
+  output.replaceChildren();
+
+  [
+   'ZERO, mostra os compromissos de hoje',
+   'ZERO, mostra os compromissos de amanhã',
+   'ZERO, mostra a agenda de 12 de novembro',
+   'ZERO, quantos alunos tenho?',
+   'ZERO, procura o aluno João'
+  ].forEach(example=>{
+   btn(output,example,()=>{
+    if(transcript)transcript.value=example;
+    answer(example);
+   },'secondary');
+  });
+ },'secondary');
+
+ area.appendChild(panel);
+
+ /* Interpretar automaticamente após o reconhecimento */
+ const status=[...area.querySelectorAll('p')]
+  .find(p=>p.textContent==='Pronto para começar.');
+
+ if(status&&transcript){
+  let lastText='';
+
+  const observer=new MutationObserver(()=>{
+   if(!panel.isConnected){
+    observer.disconnect();
+    return;
+   }
+
+   if(status.textContent.includes('Voz reconhecida!')){
+    const text=transcript.value.trim();
+
+    if(text&&text!==lastText){
+     lastText=text;
+     answer(text);
+    }
+   }
+  });
+
+  observer.observe(status,{
+   childList:true,
+   characterData:true,
+   subtree:true
+  });
+
+  transcript.addEventListener('input',()=>{
+   lastText='';
+  });
+ }
+}
+
+show=function(k){
+ previousShow522(k);
+
+ if(k==='assistente'){
+  install522();
+ }
+};
+
+const subtitle=document.querySelector('header small');
+
+if(subtitle){
+ subtitle.textContent=
+  'O teu centro de controlo pessoal · v5.2.2';
+}
+
+})();
+
 </script>
 </body>
 </html>
