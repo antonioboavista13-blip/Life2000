@@ -3613,6 +3613,463 @@ const subtitle=document.querySelector('header small');
 if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v4.8';
 })();
 
+/* ZERO v4.9 — GESTÃO FINANCEIRA */
+(function(){
+'use strict';
+
+const DUES='mensalidades49';
+const EXPENSES='despesas49';
+const oldShow49=show;
+const oldSettings49=settings;
+
+function euro49(v){
+ return Number(v||0).toLocaleString('pt-PT',{
+  style:'currency',currency:'EUR'
+ });
+}
+function number49(v){
+ return Number(String(v??'').replace(',','.'));
+}
+function valid49(v){
+ return String(v).trim()!=='' &&
+  Number.isFinite(number49(v)) && number49(v)>=0;
+}
+function today49(){
+ const d=new Date();
+ const y=d.getFullYear();
+ const m=String(d.getMonth()+1).padStart(2,'0');
+ const day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`;
+}
+function month49(){
+ return today49().slice(0,7);
+}
+function box49(parent,title){
+ const b=el('div');
+ b.className='subpanel';
+ b.appendChild(el('h3',title));
+ parent.appendChild(b);
+ return b;
+}
+function info49(parent,label,value){
+ const p=el('p');
+ p.appendChild(el('b',label+': '));
+ p.appendChild(document.createTextNode(String(value)));
+ parent.appendChild(p);
+}
+function select49(parent,label,options){
+ parent.appendChild(el('label',label));
+ const s=el('select');
+ options.forEach(([value,title])=>{
+  const o=el('option',title);
+  o.value=value;
+  s.appendChild(o);
+ });
+ parent.appendChild(s);
+ return s;
+}
+function studentName49(id){
+ return getData('alunos').find(s=>s.id===id)?.nome ||
+  'Aluno eliminado';
+}
+function payments49(){
+ const result=[];
+ getData('alunos').forEach(s=>{
+  (s.pagamentos||[]).forEach(p=>{
+   const value=Number(p.valor);
+   if(!Number.isFinite(value)||value<0)return;
+   result.push({
+    ...p,
+    aluno:s.nome,
+    valor:value
+   });
+  });
+ });
+ return result;
+}
+function finance49(){
+ current='financeiro';
+ clear();
+ $('sectionTitle').textContent='💶 Gestão Financeira';
+ const a=$('formArea');
+ const list=$('items');
+
+ a.appendChild(el('h3','ZERO — Finanças'));
+
+ const month=field(a,'Consultar mês',month49(),'month');
+ const summary=box49(a,'Resumo financeiro');
+ const pending=box49(a,'Mensalidades pendentes');
+
+ const controls=actions(a);
+ btn(controls,'+ Mensalidade',()=>dueForm49());
+ btn(controls,'+ Despesa',()=>expenseForm49());
+ btn(controls,'Ver pagamentos',()=>paymentList49(),'secondary');
+
+ const dueList=box49(list,'Mensalidades');
+ const expenseList=box49(list,'Despesas');
+
+ function render(){
+  const selected=month.value||month49();
+  const dues=getData(DUES).filter(x=>x.mes===selected);
+  const expenses=getData(EXPENSES)
+   .filter(x=>String(x.data||'').startsWith(selected));
+  const payments=payments49()
+   .filter(x=>String(x.data||'').startsWith(selected));
+
+  const income=payments.reduce((n,x)=>n+x.valor,0);
+  const costs=expenses.reduce((n,x)=>n+Number(x.valor||0),0);
+  const unpaid=dues.filter(x=>!x.pago);
+  const unpaidTotal=unpaid.reduce(
+   (n,x)=>n+Number(x.valor||0),0
+  );
+
+  summary.replaceChildren();
+  summary.appendChild(el('h3','Resumo de '+selected));
+  info49(summary,'Receitas recebidas',euro49(income));
+  info49(summary,'Despesas',euro49(costs));
+  info49(summary,'Saldo',euro49(income-costs));
+  info49(summary,'Mensalidades por receber',euro49(unpaidTotal));
+  summary.appendChild(el('small',
+   'Saldo = pagamentos registados menos despesas. '+
+   'Não inclui valores ainda por receber.'
+  ));
+
+  pending.replaceChildren();
+  pending.appendChild(el('h3','Por liquidar'));
+  if(!unpaid.length){
+   pending.appendChild(el('p','Sem mensalidades pendentes neste mês.'));
+  }
+  unpaid.forEach(x=>{
+   const b=el('div');
+   b.className='item';
+   b.appendChild(el('b',studentName49(x.alunoId)));
+   info49(b,'Valor',euro49(x.valor));
+   info49(b,'Vencimento',x.vencimento||'—');
+   const overdue=x.vencimento &&
+    x.vencimento<today49();
+   if(overdue){
+    const p=el('p','Prazo ultrapassado');
+    p.style.color='#ff9b9b';
+    b.appendChild(p);
+   }
+   pending.appendChild(b);
+  });
+
+  dueList.replaceChildren();
+  dueList.appendChild(el('h3','Mensalidades'));
+  if(!dues.length)dueList.appendChild(el('p','Sem registos.'));
+  dues.forEach(x=>{
+   const b=el('div');
+   b.className='item';
+   b.appendChild(el('b',
+    studentName49(x.alunoId)+' · '+euro49(x.valor)
+   ));
+   info49(b,'Vencimento',x.vencimento||'—');
+   info49(b,'Estado',x.pago?'Liquidada':'Pendente');
+   const ac=actions(b);
+   btn(ac,x.pago?'Marcar pendente':'Marcar liquidada',()=>{
+    const all=getData(DUES);
+    const entry=all.find(z=>z.id===x.id);
+    if(!entry)return;
+    entry.pago=!entry.pago;
+    entry.dataLiquidacao=entry.pago?today49():'';
+    if(saveData(DUES,all))render();
+   },'secondary');
+   btn(ac,'Eliminar',()=>{
+    if(!confirm('Eliminar esta mensalidade?'))return;
+    if(saveData(DUES,getData(DUES).filter(z=>z.id!==x.id)))
+     render();
+   },'danger');
+   dueList.appendChild(b);
+  });
+
+  expenseList.replaceChildren();
+  expenseList.appendChild(el('h3','Despesas'));
+  if(!expenses.length){
+   expenseList.appendChild(el('p','Sem despesas registadas.'));
+  }
+  expenses.forEach(x=>{
+   const b=el('div');
+   b.className='item';
+   b.appendChild(el('b',x.descricao+' · '+euro49(x.valor)));
+   info49(b,'Data',x.data);
+   info49(b,'Categoria',x.categoria);
+   btn(b,'Eliminar',()=>{
+    if(!confirm('Eliminar esta despesa?'))return;
+    if(saveData(EXPENSES,
+     getData(EXPENSES).filter(z=>z.id!==x.id)))render();
+   },'danger');
+   expenseList.appendChild(b);
+  });
+ }
+
+ month.onchange=render;
+ render();
+}
+
+function dueForm49(){
+ clear();
+ const a=$('formArea');
+ btn(a,'← Finanças',finance49,'secondary');
+ a.appendChild(el('h3','Nova mensalidade'));
+
+ const studentsData=getData('alunos');
+ if(!studentsData.length){
+  a.appendChild(el('p','Cria primeiro um aluno.'));
+  return;
+ }
+ const student=select49(a,'Aluno',
+  studentsData.map(s=>[s.id,s.nome]));
+ const month=field(a,'Mês',month49(),'month');
+ const amount=field(a,'Valor (€)','','number');
+ amount.step='0.01';
+ const due=field(a,'Vencimento',today49(),'date');
+
+ btn(a,'Guardar mensalidade',()=>{
+  if(!month.value||!due.value||!valid49(amount.value))
+   return alert('Verifica os dados.');
+
+  const all=getData(DUES);
+  if(all.some(x=>x.alunoId===student.value &&
+    x.mes===month.value)){
+   return alert('Já existe uma mensalidade para este aluno e mês.');
+  }
+  all.push({
+   id:uid(),
+   alunoId:student.value,
+   mes:month.value,
+   valor:number49(amount.value),
+   vencimento:due.value,
+   pago:false,
+   dataLiquidacao:''
+  });
+  if(saveData(DUES,all))finance49();
+ });
+}
+
+function expenseForm49(){
+ clear();
+ const a=$('formArea');
+ btn(a,'← Finanças',finance49,'secondary');
+ a.appendChild(el('h3','Nova despesa'));
+
+ const date=field(a,'Data',today49(),'date');
+ const description=field(a,'Descrição');
+ const amount=field(a,'Valor (€)','','number');
+ amount.step='0.01';
+ const category=select49(a,'Categoria',[
+  ['Renda','Renda'],
+  ['Salários','Salários'],
+  ['Equipamento','Equipamento'],
+  ['Água e luz','Água e luz'],
+  ['Manutenção','Manutenção'],
+  ['Marketing','Marketing'],
+  ['Outros','Outros']
+ ]);
+
+ btn(a,'Guardar despesa',()=>{
+  if(!date.value||!description.value.trim()||
+     !valid49(amount.value))
+   return alert('Preenche os dados corretamente.');
+
+  const all=getData(EXPENSES);
+  all.unshift({
+   id:uid(),
+   data:date.value,
+   descricao:description.value.trim(),
+   valor:number49(amount.value),
+   categoria:category.value
+  });
+  if(saveData(EXPENSES,all))finance49();
+ });
+}
+
+function paymentList49(){
+ clear();
+ const a=$('formArea');
+ btn(a,'← Finanças',finance49,'secondary');
+ a.appendChild(el('h3','Pagamentos recebidos'));
+ a.appendChild(el('p',
+  'Estes pagamentos vêm das fichas dos alunos.'
+ ));
+ const month=field(a,'Mês',month49(),'month');
+ const list=$('items');
+
+ function render(){
+  list.replaceChildren();
+  const data=payments49()
+   .filter(p=>String(p.data||'').startsWith(month.value))
+   .sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+
+  if(!data.length)list.appendChild(el('p','Sem pagamentos.'));
+  data.forEach(p=>{
+   const b=el('div');
+   b.className='item';
+   b.appendChild(el('b',p.aluno+' · '+euro49(p.valor)));
+   info49(b,'Data',p.data);
+   info49(b,'Descrição',p.descricao||'—');
+   info49(b,'Método',p.metodo||'—');
+   list.appendChild(b);
+  });
+  info49(list,'Total',euro49(
+   data.reduce((n,p)=>n+p.valor,0)
+  ));
+ }
+ month.onchange=render;
+ render();
+}
+
+/* Criar acesso no ecrã inicial */
+const grid49=document.querySelector('#home .grid');
+if(grid49 && !document.getElementById('zeroFinance49')){
+ const card=el('div');
+ card.id='zeroFinance49';
+ card.className='card';
+ card.appendChild(document.createTextNode('💶'));
+ card.appendChild(el('b','Finanças'));
+ card.appendChild(el('span','Mensalidades, receitas e despesas'));
+ card.onclick=()=>show('financeiro');
+ grid49.insertBefore(
+  card,
+  grid49.querySelector('[onclick*="definicoes"]')
+ );
+}
+
+/* Integrar com a navegação existente */
+names.financeiro='Gestão Financeira';
+show=function(k){
+ if(k==='financeiro'){
+  $('home').classList.add('hidden');
+  $('editor').classList.remove('hidden');
+  finance49();
+  stats();
+  return;
+ }
+ oldShow49(k);
+};
+
+/* Backups: preservar o sistema anterior e acrescentar
+   as duas novas categorias de dados. */
+settings=function(){
+ oldSettings49();
+ const area=$('formArea');
+ area.appendChild(el('p',
+  'ZERO v4.9: as mensalidades e despesas são incluídas '+
+  'nas novas cópias JSON.'
+ ));
+
+ const buttons=[...area.querySelectorAll('button')];
+ const exportBtn=buttons.find(b=>
+  b.textContent.trim()==='Exportar cópia JSON'
+ );
+ if(exportBtn){
+  exportBtn.onclick=()=>{
+   const backup={
+    app:'LIFE 2000',
+    version:'4.9',
+    exportedAt:new Date().toISOString(),
+    data:{}
+   };
+   const backupKeys=[
+    'agenda','alunos','treinos','nutricao','notas',
+    'modelosTreino','modelosAlimentares',
+    'bibliotecaAlimentos','bibliotecaExercicios',
+    DUES,EXPENSES
+   ];
+   backupKeys.forEach(k=>backup.data[k]=getData(k));
+   const blob=new Blob(
+    [JSON.stringify(backup,null,2)],
+    {type:'application/json'}
+   );
+   const url=URL.createObjectURL(blob);
+   const link=el('a');
+   link.href=url;
+   link.download='zero-backup-v49.json';
+   document.body.appendChild(link);
+   link.click();
+   link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),3000);
+  };
+ }
+
+ /* Importação compatível com backups v4.9 e anteriores */
+ const importBtn=buttons.find(b=>
+  b.textContent.trim()==='Importar cópia de segurança'
+ );
+ const file=area.querySelector('input[type="file"]');
+
+ if(importBtn&&file){
+  importBtn.onclick=async()=>{
+   if(!file.files?.[0])
+    return alert('Seleciona um ficheiro JSON.');
+
+   let backup;
+   try{
+    backup=JSON.parse(await file.files[0].text());
+   }catch{
+    return alert('Ficheiro inválido.');
+   }
+
+   const allowed=[
+    'agenda','alunos','treinos','nutricao','notas',
+    'modelosTreino','modelosAlimentares',
+    'bibliotecaAlimentos','bibliotecaExercicios',
+    DUES,EXPENSES
+   ];
+
+   if(backup.app!=='LIFE 2000'||
+      !backup.data||
+      typeof backup.data!=='object'||
+      Array.isArray(backup.data))
+    return alert('Cópia incompatível.');
+
+   const supplied=Object.keys(backup.data);
+   if(!supplied.length||
+      supplied.some(k=>!allowed.includes(k)||
+       !Array.isArray(backup.data[k])))
+    return alert('Dados incompatíveis.');
+
+   if(!confirm(
+    'A importação substitui as categorias presentes '+
+    'na cópia. As restantes serão preservadas. Continuar?'
+   ))return;
+
+   const old={};
+   allowed.forEach(k=>{
+    old[k]=localStorage.getItem('life2000_'+k);
+   });
+
+   try{
+    supplied.forEach(k=>{
+     localStorage.setItem(
+      'life2000_'+k,
+      JSON.stringify(backup.data[k])
+     );
+    });
+   }catch{
+    allowed.forEach(k=>{
+     try{
+      if(old[k]===null)
+       localStorage.removeItem('life2000_'+k);
+      else
+       localStorage.setItem('life2000_'+k,old[k]);
+     }catch{}
+    });
+    return alert('Erro ao importar.');
+   }
+   alert('Cópia importada com sucesso.');
+   show('home');
+  };
+ }
+};
+
+const subtitle49=document.querySelector('header small');
+if(subtitle49)
+ subtitle49.textContent=
+  'O teu centro de controlo pessoal · v4.9';
+
+})();
+
 </script>
 </body>
 </html>
