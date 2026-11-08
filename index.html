@@ -3344,6 +3344,275 @@ if (subtitle) {
 })();
 
 
+/* ZERO v4.8 — GESTÃO DE ALUNOS */
+(function(){
+'use strict';
+const previousProfile48=profile;
+const previousSettings48=settings;
+const fmtDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-PT'): '—';
+
+function updateStudent(id,fn){
+ const data=getData('alunos'),s=data.find(x=>x.id===id);
+ if(!s)return false;
+ fn(s);
+ return saveData('alunos',data);
+}
+function section(root,title){
+ const p=el('div');
+ p.className='panel';
+ p.appendChild(el('h3',title));
+ root.appendChild(p);
+ return p;
+}
+function line(root,label,value){
+ const p=el('p');
+ p.appendChild(el('b',label+': '));
+ p.appendChild(document.createTextNode(String(value??'—')));
+ root.appendChild(p);
+}
+function dateField(root,label,value=''){
+ return field(root,label,value,'date');
+}
+function money(v){
+ return Number(v||0).toLocaleString('pt-PT',{
+  style:'currency',currency:'EUR'
+ });
+}
+function num(v){
+ return Number(String(v??'').replace(',','.'));
+}
+function validMoney(v){
+ return String(v).trim()!==''&&Number.isFinite(num(v))&&num(v)>=0;
+}
+
+function notes(id){
+ clear();
+ const s=getData('alunos').find(x=>x.id===id);
+ if(!s)return students();
+ const a=$('formArea');
+ btn(a,'← Ficha do aluno',()=>profile(id),'secondary');
+ a.appendChild(el('h3','Notas privadas — '+s.nome));
+ const entries=Array.isArray(s.notasPrivadas)?s.notasPrivadas:[];
+ const note=memo(a,'Nova nota');
+ btn(a,'Guardar nota',()=>{
+  if(!note.value.trim())return alert('Escreve uma nota.');
+  if(updateStudent(id,x=>{
+   x.notasPrivadas=Array.isArray(x.notasPrivadas)?x.notasPrivadas:[];
+   x.notasPrivadas.unshift({
+    id:uid(),
+    data:new Date().toISOString(),
+    texto:note.value.trim()
+   });
+  }))notes(id);
+ });
+ const list=$('items');
+ entries.forEach(n=>{
+  const b=el('div');
+  b.className='item';
+  line(b,'Data',new Date(n.data).toLocaleString('pt-PT'));
+  b.appendChild(el('p',n.texto));
+  btn(b,'Eliminar',()=>{
+   if(confirm('Eliminar esta nota?')&&updateStudent(id,x=>
+    x.notasPrivadas=(x.notasPrivadas||[]).filter(y=>y.id!==n.id)
+   ))notes(id);
+  },'danger');
+  list.appendChild(b);
+ });
+}
+
+function sessions(id){
+ clear();
+ const s=getData('alunos').find(x=>x.id===id);
+ if(!s)return students();
+ const a=$('formArea');
+ btn(a,'← Ficha do aluno',()=>profile(id),'secondary');
+ a.appendChild(el('h3','Histórico de treinos — '+s.nome));
+ const date=dateField(a,'Data',new Date().toISOString().slice(0,10));
+ const plans=(s.planosTreino||[]);
+ a.appendChild(el('label','Plano associado'));
+ const choice=el('select');
+ const empty=el('option','Sem plano associado');
+ empty.value='';
+ choice.appendChild(empty);
+ plans.forEach(p=>{
+  const o=el('option',p.titulo||'Plano');
+  o.value=p.id;
+  choice.appendChild(o);
+ });
+ a.appendChild(choice);
+ const duration=field(a,'Duração (minutos, opcional)','','number');
+ const detail=memo(a,'Exercícios realizados, cargas e observações');
+ btn(a,'Registar sessão',()=>{
+  if(!date.value)return alert('Indica a data.');
+  if(duration.value&&(num(duration.value)<0||!Number.isFinite(num(duration.value))))
+   return alert('Duração inválida.');
+  const p=plans.find(z=>z.id===choice.value);
+  if(updateStudent(id,x=>{
+   x.historicoTreinos=Array.isArray(x.historicoTreinos)?x.historicoTreinos:[];
+   x.historicoTreinos.unshift({
+    id:uid(),
+    data:date.value,
+    planoId:p?.id||'',
+    planoTitulo:p?.titulo||'',
+    duracao:duration.value,
+    obs:detail.value.trim()
+   });
+  }))sessions(id);
+ });
+ const list=$('items');
+ (s.historicoTreinos||[]).slice().sort((a,b)=>b.data.localeCompare(a.data)).forEach(t=>{
+  const b=el('div');
+  b.className='item';
+  b.appendChild(el('b',fmtDate(t.data)));
+  if(t.planoTitulo)line(b,'Plano',t.planoTitulo);
+  if(t.duracao)line(b,'Duração',t.duracao+' min');
+  if(t.obs)b.appendChild(el('p',t.obs));
+  btn(b,'Eliminar',()=>{
+   if(confirm('Eliminar esta sessão?')&&updateStudent(id,x=>
+    x.historicoTreinos=(x.historicoTreinos||[]).filter(y=>y.id!==t.id)
+   ))sessions(id);
+  },'danger');
+  list.appendChild(b);
+ });
+}
+
+function payments(id){
+ clear();
+ const s=getData('alunos').find(x=>x.id===id);
+ if(!s)return students();
+ const a=$('formArea');
+ btn(a,'← Ficha do aluno',()=>profile(id),'secondary');
+ a.appendChild(el('h3','Pagamentos e PT — '+s.nome));
+
+ const pack=section(a,'Packs de sessões');
+ const qty=field(pack,'Sessões do novo pack','','number');
+ const price=field(pack,'Valor do pack (€)','','number');
+ price.step='0.01';
+
+ btn(pack,'Criar pack',()=>{
+  const q=num(qty.value);
+  if(!Number.isInteger(q)||q<=0||!validMoney(price.value))
+   return alert('Indica sessões e valor válidos.');
+  if(updateStudent(id,x=>{
+   x.packsPT=Array.isArray(x.packsPT)?x.packsPT:[];
+   x.packsPT.push({
+    id:uid(),
+    data:new Date().toISOString().slice(0,10),
+    total:q,
+    usadas:0,
+    valor:num(price.value)
+   });
+  }))payments(id);
+ });
+
+ (s.packsPT||[]).forEach(p=>{
+  const b=el('div');
+  b.className='subpanel';
+  line(b,'Pack',p.total+' sessões · '+money(p.valor));
+  line(b,'Restantes',Math.max(0,p.total-p.usadas));
+  const ac=actions(b);
+  btn(ac,'Utilizar 1 sessão',()=>{
+   if(p.usadas>=p.total)return alert('Pack esgotado.');
+   if(updateStudent(id,x=>{
+    const pack=x.packsPT.find(y=>y.id===p.id);
+    if(pack&&pack.usadas<pack.total)pack.usadas++;
+   }))payments(id);
+  });
+  btn(ac,'Anular utilização',()=>{
+   if(p.usadas<=0)return;
+   if(updateStudent(id,x=>{
+    const pack=x.packsPT.find(y=>y.id===p.id);
+    if(pack&&pack.usadas>0)pack.usadas--;
+   }))payments(id);
+  },'secondary');
+  btn(ac,'Eliminar pack',()=>{
+   if(confirm('Eliminar este pack?')&&updateStudent(id,x=>
+    x.packsPT=x.packsPT.filter(y=>y.id!==p.id)
+   ))payments(id);
+  },'danger');
+  pack.appendChild(b);
+ });
+
+ const pay=section(a,'Registar pagamento');
+ const date=dateField(pay,'Data',new Date().toISOString().slice(0,10));
+ const amount=field(pay,'Valor recebido (€)','','number');
+ amount.step='0.01';
+ const description=field(pay,'Descrição (mensalidade, PT, etc.)');
+ const method=el('select');
+ ['MB Way','Dinheiro','Transferência','Multibanco','Outro'].forEach(v=>{
+  const o=el('option',v);
+  o.value=v;
+  method.appendChild(o);
+ });
+ pay.appendChild(el('label','Método'));
+ pay.appendChild(method);
+
+ btn(pay,'Guardar pagamento',()=>{
+  if(!date.value||!validMoney(amount.value)||!description.value.trim())
+   return alert('Preenche data, valor e descrição.');
+  if(updateStudent(id,x=>{
+   x.pagamentos=Array.isArray(x.pagamentos)?x.pagamentos:[];
+   x.pagamentos.unshift({
+    id:uid(),
+    data:date.value,
+    valor:num(amount.value),
+    descricao:description.value.trim(),
+    metodo:method.value
+   });
+  }))payments(id);
+ });
+
+ const list=$('items');
+ list.appendChild(el('h3','Histórico de pagamentos'));
+ (s.pagamentos||[]).slice().sort((a,b)=>b.data.localeCompare(a.data)).forEach(p=>{
+  const b=el('div');
+  b.className='item';
+  b.appendChild(el('b',money(p.valor)+' · '+fmtDate(p.data)));
+  line(b,'Descrição',p.descricao);
+  line(b,'Método',p.metodo);
+  btn(b,'Eliminar',()=>{
+   if(confirm('Eliminar este pagamento?')&&updateStudent(id,x=>
+    x.pagamentos=(x.pagamentos||[]).filter(y=>y.id!==p.id)
+   ))payments(id);
+  },'danger');
+  list.appendChild(b);
+ });
+ const total=(s.pagamentos||[]).reduce((v,p)=>v+Number(p.valor||0),0);
+ line(list,'Total recebido registado',money(total));
+ list.appendChild(el('small',
+  'Registo interno: não cobra pagamentos, não emite faturas nem calcula dívidas automaticamente.'
+ ));
+}
+
+profile=function(id){
+ previousProfile48(id);
+ const s=getData('alunos').find(x=>x.id===id);
+ if(!s)return;
+ const root=$('items');
+ const box=section(root,'Gestão do aluno');
+ const ac=actions(box);
+ btn(ac,'📋 Histórico de treinos',()=>sessions(id),'secondary');
+ btn(ac,'💶 Pagamentos e PT',()=>payments(id),'secondary');
+ btn(ac,'📝 Notas privadas',()=>notes(id),'secondary');
+ line(box,'Sessões registadas',(s.historicoTreinos||[]).length);
+ line(box,'Notas privadas',(s.notasPrivadas||[]).length);
+ line(box,'Sessões PT restantes',(s.packsPT||[]).reduce(
+  (n,p)=>n+Math.max(0,Number(p.total||0)-Number(p.usadas||0)),0
+ ));
+};
+
+settings=function(){
+ previousSettings48();
+ const area=$('formArea');
+ area.appendChild(el('p',
+  'ZERO v4.8: o histórico, os packs, os pagamentos e as notas ficam dentro de cada aluno e são incluídos na exportação JSON existente.'
+ ));
+};
+
+const subtitle=document.querySelector('header small');
+if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v4.8';
+})();
+
 </script>
 </body>
 </html>
