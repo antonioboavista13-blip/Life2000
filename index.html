@@ -6271,6 +6271,135 @@ if(subtitle){
 
 })();
 
+/* ZERO v5.2.8 — CORREÇÃO DA PRÉ-VISUALIZAÇÃO */
+(function(){
+"use strict";
+
+const previousShow528 = show;
+let cleanup528 = null;
+
+function install528(){
+ if(current !== "assistente") return;
+
+ if(cleanup528) cleanup528();
+
+ const area = document.getElementById("formArea");
+ const panel = document.getElementById("zeroCreate523");
+ const transcript = area?.querySelector("textarea");
+ const preview = panel?.querySelector(".subpanel");
+
+ const previewButton = [...(panel?.querySelectorAll("button")||[])]
+  .find(b=>b.textContent.includes("Pré-visualizar marcação"));
+
+ if(!area||!panel||!transcript||!previewButton||!preview)
+  return;
+
+ function validPreview(){
+  const inputs = preview.querySelectorAll("input");
+  return inputs.length >= 4 &&
+   !!inputs[0].value.trim() &&
+   !!inputs[1].value &&
+   !!inputs[2].value;
+ }
+
+ function closeOldModal(){
+  document.querySelectorAll("body > div").forEach(node=>{
+   if(node.style.zIndex==="9998"){
+    node.style.display="none";
+   }
+  });
+  document.body.style.overflow="";
+ }
+
+ function showResult(){
+  if(current!=="assistente") return;
+
+  const content=preview.textContent||"";
+
+  if(content.includes("A pré-visualização aparece aqui."))
+   return;
+
+  if(content.includes("Marcação guardada!") ||
+     content.includes("Marcação cancelada.")){
+   closeOldModal();
+   return;
+  }
+
+  if(!validPreview()){
+   closeOldModal();
+   preview.style.display="block";
+   preview.style.position="fixed";
+   preview.style.zIndex="9999";
+   return;
+  }
+
+  preview.style.display="block";
+  preview.style.position="fixed";
+  preview.style.zIndex="9999";
+  preview.scrollTop=0;
+ }
+
+ function isCreation(text){
+  const command=String(text||"")
+   .normalize("NFD")
+   .replace(/[\u0300-\u036f]/g,"")
+   .toLowerCase();
+
+  return /\b(marca|marcar|agenda|agendar|cria|criar|adiciona|adicionar|regista|registar)\b/.test(command)
+   && !/\b(mostra|mostrar|consulta|consultar|quantos|quais)\b/.test(command);
+ }
+
+ function interpret(event){
+  const button=event.target.closest?.("button");
+
+  if(!button || !area.contains(button) ||
+     !button.textContent.includes("Interpretar comando"))
+   return;
+
+  if(!isCreation(transcript.value)) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  closeOldModal();
+  previewButton.click();
+
+  queueMicrotask(showResult);
+ }
+
+ window.addEventListener("click",interpret,true);
+
+ const observer=new MutationObserver(()=>{
+  queueMicrotask(showResult);
+ });
+
+ observer.observe(preview,{
+  childList:true,
+  subtree:true
+ });
+
+ cleanup528=()=>{
+  window.removeEventListener("click",interpret,true);
+  observer.disconnect();
+  closeOldModal();
+  cleanup528=null;
+ };
+}
+
+show=function(k){
+ if(cleanup528)cleanup528();
+ previousShow528(k);
+ if(k==="assistente")install528();
+};
+
+const subtitle=document.querySelector("header small");
+if(subtitle){
+ subtitle.textContent=
+  "O teu centro de controlo pessoal · v5.2.8";
+}
+
+})();
+
 </script>
 </body>
 </html>
