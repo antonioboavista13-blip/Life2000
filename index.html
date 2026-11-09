@@ -6088,6 +6088,189 @@ if(subtitle){
 
 })();
 
+/* ZERO v5.2.7 — COMANDOS E CONFIRMAÇÃO */
+(function(){
+"use strict";
+
+const previousShow527 = show;
+let cleanup527 = null;
+
+function install527(){
+ if(current !== "assistente") return;
+
+ if(cleanup527) cleanup527();
+
+ const area = document.getElementById("formArea");
+ const panel = document.getElementById("zeroCreate523");
+ const transcript = area?.querySelector("textarea");
+ const preview = panel?.querySelector(".subpanel");
+
+ const previewButton = [...(panel?.querySelectorAll("button")||[])]
+  .find(b=>b.textContent.includes("Pré-visualizar marcação"));
+
+ if(!area||!panel||!transcript||!preview||!previewButton)
+  return;
+
+ const backdrop = document.createElement("div");
+ backdrop.style.cssText =
+  "position:fixed;inset:0;background:rgba(0,0,0,.8);" +
+  "z-index:9998;display:none";
+
+ document.body.appendChild(backdrop);
+
+ const oldStyle = preview.getAttribute("style");
+
+ preview.style.cssText =
+  "position:fixed;top:50%;left:50%;" +
+  "transform:translate(-50%,-50%);" +
+  "width:calc(100% - 28px);max-width:460px;" +
+  "max-height:78dvh;overflow-y:auto;" +
+  "background:#24262c;color:white;" +
+  "border:1px solid #666;border-radius:18px;" +
+  "padding:20px;z-index:9999;" +
+  "box-shadow:0 20px 70px #0009;" +
+  "display:none";
+
+ const close = document.createElement("button");
+ close.textContent = "✕ Fechar";
+ close.className = "secondary";
+ close.style.cssText =
+  "width:100%;margin-bottom:12px";
+
+ preview.prepend(close);
+
+ function hide(){
+  backdrop.style.display = "none";
+  preview.style.display = "none";
+  document.body.style.overflow = "";
+ }
+
+ function open(){
+  if(current !== "assistente") return;
+
+  const content = preview.textContent || "";
+
+  if(content.includes("A pré-visualização aparece aqui."))
+   return;
+
+  preview.style.display = "block";
+  backdrop.style.display = "block";
+  document.body.style.overflow = "hidden";
+  preview.scrollTop = 0;
+ }
+
+ close.onclick = hide;
+ backdrop.onclick = hide;
+
+ function handleCommand(event){
+  const button = event.target.closest("button");
+  if(!button||!area.contains(button)) return;
+
+  if(!button.textContent.includes("Interpretar comando"))
+   return;
+
+  const command = transcript.value.trim();
+
+  const normalized = command
+   .normalize("NFD")
+   .replace(/[\u0300-\u036f]/g,"")
+   .toLowerCase();
+
+  const creation =
+   /\b(marca|marcar|agenda|agendar|cria|criar|adiciona|adicionar|regista|registar)\b/.test(normalized)
+   && !/\b(mostra|mostrar|consulta|consultar|quantos|quais)\b/.test(normalized);
+
+  if(!creation) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  hide();
+
+  // Executa o interpretador original da v5.2.3.
+  previewButton.click();
+  open();
+ }
+
+ document.addEventListener("click",handleCommand,true);
+
+ function previewClick(event){
+  const button = event.target.closest("button");
+  if(!button) return;
+
+  if(button.textContent.includes("Cancelar")){
+   setTimeout(hide,0);
+  }
+
+  if(button.textContent.includes("Confirmar e guardar")){
+   setTimeout(()=>{
+    if(preview.textContent.includes("Marcação guardada!"))
+     hide();
+   },50);
+  }
+ }
+
+ preview.addEventListener("click",previewClick);
+
+ // Deteta novas pré-visualizações, incluindo as de voz.
+ const observer = new MutationObserver(()=>{
+  if(!panel.isConnected) return;
+
+  const content = preview.textContent || "";
+
+  if(content.includes("A pré-visualização aparece aqui."))
+   return;
+
+  if(content.includes("Marcação cancelada.")){
+   hide();
+   return;
+  }
+
+  if(content.includes("Marcação guardada!")){
+   hide();
+   return;
+  }
+
+  if(backdrop.style.display !== "block")
+   open();
+ });
+
+ observer.observe(preview,{
+  childList:true,
+  subtree:false
+ });
+
+ cleanup527 = function(){
+  observer.disconnect();
+  document.removeEventListener("click",handleCommand,true);
+  preview.removeEventListener("click",previewClick);
+  hide();
+  backdrop.remove();
+
+  if(oldStyle===null)
+   preview.removeAttribute("style");
+  else
+   preview.setAttribute("style",oldStyle);
+
+  close.remove();
+  cleanup527 = null;
+ };
+}
+
+show = function(k){
+ if(cleanup527) cleanup527();
+ previousShow527(k);
+ if(k==="assistente") install527();
+};
+
+const subtitle = document.querySelector("header small");
+if(subtitle){
+ subtitle.textContent =
+  "O teu centro de controlo pessoal · v5.2.7";
+}
+
+})();
+
 </script>
 </body>
 </html>
