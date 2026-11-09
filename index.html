@@ -5968,6 +5968,126 @@ if(subtitle){
 
 })();
 
+/* ZERO v5.2.5 — LIGAR COMANDOS À AGENDA */
+(function(){
+"use strict";
+
+const previousShow525 = show;
+
+function normalize525(text){
+ return String(text||"")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase()
+  .replace(/[.,!?]/g," ")
+  .replace(/\s+/g," ")
+  .trim();
+}
+
+function isCreation525(text){
+ const command=normalize525(text)
+  .replace(/^zero\s+/,"");
+
+ return /\b(marca|marcar|agenda|agendar|cria|criar|adiciona|adicionar|regista|registar)\b/.test(command)
+  && !/\b(mostra|mostrar|consulta|consultar|quantos|quais)\b/.test(command);
+}
+
+function install525(){
+ if(current!=="assistente")return;
+
+ const area=$("formArea");
+ if(!area||area.dataset.zero525==="yes")return;
+
+ area.dataset.zero525="yes";
+
+ const transcript=area.querySelector("textarea");
+ const previewButton=[...area.querySelectorAll("button")]
+  .find(b=>b.textContent.includes("Pré-visualizar marcação"));
+
+ if(!transcript||!previewButton)return;
+
+ function executeCreation(){
+  if(!isCreation525(transcript.value))return false;
+
+  previewButton.click();
+
+  document.getElementById("zeroCreate523")
+   ?.scrollIntoView({
+    behavior:"smooth",
+    block:"start"
+   });
+
+  return true;
+ }
+
+ area.addEventListener("click",function(event){
+  const button=event.target.closest("button");
+
+  if(!button||
+     !button.textContent.includes("Interpretar comando"))
+   return;
+
+  if(isCreation525(transcript.value)){
+   event.preventDefault();
+   event.stopImmediatePropagation();
+   executeCreation();
+  }
+ },true);
+
+ const status=[...area.querySelectorAll("p")]
+  .find(p=>p.textContent==="Pronto para começar.");
+
+ if(status){
+  let lastCommand="";
+
+  const observer=new MutationObserver(()=>{
+   if(!area.isConnected){
+    observer.disconnect();
+    return;
+   }
+
+   if(!status.textContent.includes("Voz reconhecida!"))
+    return;
+
+   const command=transcript.value.trim();
+
+   if(!command||
+      command===lastCommand||
+      !isCreation525(command))return;
+
+   lastCommand=command;
+   executeCreation();
+  });
+
+  observer.observe(status,{
+   childList:true,
+   characterData:true,
+   subtree:true
+  });
+
+  transcript.addEventListener("input",()=>{
+   lastCommand="";
+  });
+ }
+}
+
+show=function(k){
+ previousShow525(k);
+
+ if(k==="assistente"){
+  install525();
+ }
+};
+
+const subtitle=document.querySelector("header small");
+
+if(subtitle){
+ subtitle.textContent=
+  "O teu centro de controlo pessoal · v5.2.5";
+}
+
+})();
+
 </script>
 </body>
 </html>
