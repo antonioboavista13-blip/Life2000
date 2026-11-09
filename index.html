@@ -5369,6 +5369,429 @@ if(subtitle){
 
 })();
 
+/* ZERO v5.2.3 — CRIAR COMPROMISSOS POR VOZ */
+(function(){
+"use strict";
+
+const previousShow523 = show;
+
+function normalize523(text){
+ return String(text||"")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase()
+  .replace(/[.,!?]/g," ")
+  .replace(/\s+/g," ")
+  .trim();
+}
+
+function iso523(d){
+ return d.getFullYear()+"-"+
+  String(d.getMonth()+1).padStart(2,"0")+"-"+
+  String(d.getDate()).padStart(2,"0");
+}
+
+function addDays523(d,n){
+ const x=new Date(d);
+ x.setHours(12,0,0,0);
+ x.setDate(x.getDate()+n);
+ return x;
+}
+
+function date523(command){
+ const today=new Date();
+ today.setHours(12,0,0,0);
+
+ if(/\bdepois de amanha\b/.test(command))
+  return iso523(addDays523(today,2));
+
+ if(/\bamanha\b/.test(command))
+  return iso523(addDays523(today,1));
+
+ if(/\bhoje\b/.test(command))
+  return iso523(today);
+
+ const months=[
+  "janeiro","fevereiro","marco","abril",
+  "maio","junho","julho","agosto",
+  "setembro","outubro","novembro","dezembro"
+ ];
+
+ const named=command.match(
+  /\b(\d{1,2})\s*(?:de\s+)?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s*(?:de\s+)?(\d{4}))?\b/
+ );
+
+ if(named){
+  const day=Number(named[1]);
+  const month=months.indexOf(named[2]);
+  const year=named[3]?
+   Number(named[3]):today.getFullYear();
+
+  const d=new Date(year,month,day,12);
+
+  if(d.getFullYear()!==year||
+     d.getMonth()!==month||
+     d.getDate()!==day)
+   return null;
+
+  if(!named[3]&&d<today)
+   d.setFullYear(d.getFullYear()+1);
+
+  return iso523(d);
+ }
+
+ const weekdays=[
+  "domingo","segunda","terca","quarta",
+  "quinta","sexta","sabado"
+ ];
+
+ const weekday=command.match(
+  /\b(?:proxima\s+)?(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:-feira)?\b/
+ );
+
+ if(weekday){
+  const target=weekdays.indexOf(weekday[1]);
+  let diff=(target-today.getDay()+7)%7;
+
+  if(diff===0||weekday[0].startsWith("proxima"))
+   diff+=7;
+
+  return iso523(addDays523(today,diff));
+ }
+
+ const numeric=command.match(
+  /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b/
+ );
+
+ if(numeric){
+  const day=Number(numeric[1]);
+  const month=Number(numeric[2])-1;
+  const year=numeric[3]?
+   Number(numeric[3]):today.getFullYear();
+
+  const d=new Date(year,month,day,12);
+
+  if(d.getFullYear()!==year||
+     d.getMonth()!==month||
+     d.getDate()!==day)
+   return null;
+
+  if(!numeric[3]&&d<today)
+   d.setFullYear(d.getFullYear()+1);
+
+  return iso523(d);
+ }
+
+ return null;
+}
+
+function time523(command){
+ const match=command.match(
+  /\b(?:as|pelas|para as)\s+(\d{1,2})(?:[:h](\d{1,2}))?(?:\s*(?:horas?))?\b/
+ );
+
+ if(!match)return null;
+
+ let h=Number(match[1]);
+ const m=Number(match[2]||0);
+
+ if(h>23||m>59)return null;
+
+ if(h>=1&&h<=11&&
+    /\b(?:da tarde|a tarde)\b/.test(command))
+  h+=12;
+
+ if(h===12&&/\bda manha\b/.test(command))
+  h=0;
+
+ return String(h).padStart(2,"0")+":"+
+  String(m).padStart(2,"0");
+}
+
+function title523(command){
+ let text=command
+  .replace(/^zero\s+/,"")
+  .replace(/^(?:quero\s+)?(?:que\s+)?/,"")
+  .replace(/\b(?:marca|marcar|agenda|agendar|cria|criar|adiciona|adicionar|regista|registar)\b/g," ")
+  .replace(/\b(?:um|uma)\s+(?:compromisso|marcacao|evento)\b/g," ")
+  .replace(/\bdepois de amanha\b/g," ")
+  .replace(/\bamanha\b|\bhoje\b/g," ")
+  .replace(/\b(?:proxima\s+)?(?:segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:-feira)?\b/g," ")
+  .replace(/\b\d{1,2}\s*(?:de\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s*(?:de\s+)?\d{4})?\b/g," ")
+  .replace(/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?\b/g," ")
+  .replace(/\b(?:as|pelas|para as)\s+\d{1,2}(?:[:h]\d{1,2})?(?:\s*horas?)?\b/g," ")
+  .replace(/\b(?:da tarde|da manha|da noite)\b/g," ")
+  .replace(/\s+/g," ")
+  .trim();
+
+ return text.charAt(0).toUpperCase()+text.slice(1);
+}
+
+function isCreation523(command){
+ return /\b(?:marca|marcar|agenda|agendar|cria|criar|adiciona|adicionar|regista|registar)\b/.test(command);
+}
+
+function install523(){
+ if(current!=="assistente")return;
+
+ const area=$("formArea");
+ const list=$("items");
+
+ if(area.querySelector("#zeroCreate523"))return;
+
+ const transcript=area.querySelector("textarea");
+ if(!transcript)return;
+
+ const panel=el("div");
+ panel.id="zeroCreate523";
+ panel.className="subpanel";
+
+ panel.appendChild(el("h3","📅 Criar marcações com a ZERO"));
+
+ panel.appendChild(el("p",
+  "Diz, por exemplo: ZERO, marca reunião com o Enrique amanhã às 15 horas."
+ ));
+
+ const controls=actions(panel);
+
+ const preview=el("div");
+ preview.className="subpanel";
+ preview.appendChild(el("p",
+  "A pré-visualização aparece aqui."
+ ));
+
+ panel.appendChild(preview);
+
+ let draft=null;
+
+ function reset(){
+  draft=null;
+  preview.replaceChildren();
+ }
+
+ function prepare(text){
+  reset();
+
+  const command=normalize523(text)
+   .replace(/^zero\s+/,"");
+
+  if(!isCreation523(command)){
+   preview.appendChild(el("p",
+    "Para criar uma marcação, começa por dizer «marca» ou «agenda»."
+   ));
+   return;
+  }
+
+  const date=date523(command);
+  const time=time523(command);
+  const title=title523(command);
+
+  if(!date||!time||!title){
+   preview.appendChild(el("p",
+    "Não consegui identificar todos os dados. Indica título, data e hora."
+   ));
+   return;
+  }
+
+  const dateObject=new Date(date+"T12:00:00");
+  const now=new Date();
+  const start=new Date(date+"T"+time+":00");
+
+  if(start<now){
+   preview.appendChild(el("p",
+    "A data e hora indicadas já passaram. Corrige o comando."
+   ));
+   return;
+  }
+
+  draft={
+   title,
+   date,
+   time,
+   duration:60,
+   category:"Trabalho",
+   studentId:"",
+   repeat:"none",
+   until:"",
+   detail:"Criado através do assistente ZERO."
+  };
+
+  preview.appendChild(el("h3","👀 Confirmar marcação"));
+
+  const titleInput=field(preview,"Título",draft.title);
+  const dateInput=field(preview,"Data",draft.date,"date");
+  const timeInput=field(preview,"Hora",draft.time,"time");
+  const durationInput=field(
+   preview,"Duração (minutos)",60,"number"
+  );
+
+  preview.appendChild(el("label","Categoria"));
+
+  const category=el("select");
+
+  ["PT","Treino","Trabalho","Pessoal","Outro"]
+   .forEach(name=>{
+    const option=el("option",name);
+    option.value=name;
+    category.appendChild(option);
+   });
+
+  category.value="Trabalho";
+  preview.appendChild(category);
+
+  const student=el("select");
+  const empty=el("option","Sem aluno associado");
+  empty.value="";
+  student.appendChild(empty);
+
+  getData("alunos").forEach(s=>{
+   const option=el("option",s.nome);
+   option.value=s.id;
+   student.appendChild(option);
+  });
+
+  preview.appendChild(el("label","Aluno associado"));
+  preview.appendChild(student);
+
+  const ac=actions(preview);
+
+  btn(ac,"✅ Confirmar e guardar",()=>{
+   const title=titleInput.value.trim();
+   const date=dateInput.value;
+   const time=timeInput.value;
+   const duration=Number(durationInput.value);
+
+   if(!title||!date||!time||
+      !Number.isFinite(duration)||
+      !Number.isInteger(duration)||
+      duration<=0){
+    alert("Verifica título, data, hora e duração.");
+    return;
+   }
+
+   const start=new Date(date+"T"+time+":00");
+
+   if(Number.isNaN(start.getTime())||
+      iso523(start)!==date||
+      start<new Date()){
+    alert("Escolhe uma data e hora futuras válidas.");
+    return;
+   }
+
+   const all=getData("agenda50");
+
+   const duplicate=all.some(e=>
+    e.date===date&&
+    e.time===time&&
+    normalize523(e.title)===normalize523(title)
+   );
+
+   if(duplicate){
+    alert("Já existe uma marcação igual nesta data e hora.");
+    return;
+   }
+
+   const obj={
+    id:uid(),
+    title,
+    date,
+    time,
+    duration,
+    category:category.value,
+    studentId:student.value,
+    repeat:"none",
+    until:"",
+    detail:"Criado através do assistente ZERO."
+   };
+
+   all.push(obj);
+
+   if(saveData("agenda50",all)){
+    reset();
+    preview.appendChild(el("h3","✅ Marcação guardada!"));
+    preview.appendChild(el("p",
+     title+" — "+date+" às "+time
+    ));
+
+    btn(preview,"📅 Abrir Agenda",()=>{
+     show("agenda");
+    },"secondary");
+
+    stats();
+   }
+  });
+
+  btn(ac,"❌ Cancelar",()=>{
+   reset();
+   preview.appendChild(el("p",
+    "Marcação cancelada. Nada foi guardado."
+   ));
+  },"secondary");
+ }
+
+ btn(controls,"📅 Pré-visualizar marcação",()=>{
+  prepare(transcript.value);
+ });
+
+ btn(controls,"Exemplo",()=>{
+  transcript.value=
+   "ZERO, marca reunião com o Enrique amanhã às 15 horas";
+  prepare(transcript.value);
+ },"secondary");
+
+ area.appendChild(panel);
+
+ /* Pré-visualizar automaticamente após ditado */
+ const status=[...area.querySelectorAll("p")]
+  .find(p=>p.textContent==="Pronto para começar.");
+
+ if(status){
+  let last="";
+
+  const observer=new MutationObserver(()=>{
+   if(!panel.isConnected){
+    observer.disconnect();
+    return;
+   }
+
+   if(!status.textContent.includes("Voz reconhecida!"))
+    return;
+
+   const spoken=transcript.value.trim();
+   const command=normalize523(spoken);
+
+   if(!spoken||spoken===last||
+      !isCreation523(command))return;
+
+   last=spoken;
+   prepare(spoken);
+  });
+
+  observer.observe(status,{
+   childList:true,
+   characterData:true,
+   subtree:true
+  });
+ }
+}
+
+show=function(k){
+ previousShow523(k);
+
+ if(k==="assistente"){
+  install523();
+ }
+};
+
+const subtitle=document.querySelector("header small");
+
+if(subtitle){
+ subtitle.textContent=
+  "O teu centro de controlo pessoal · v5.2.3";
+}
+
+})();
+
 </script>
 </body>
 </html>
