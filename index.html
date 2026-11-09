@@ -5792,6 +5792,182 @@ if(subtitle){
 
 })();
 
+/* ZERO v5.2.4 — DETEÇÃO DE CONFLITOS */
+(function(){
+"use strict";
+
+const previousShow524=show;
+
+function minutes524(time){
+ const parts=String(time||"").split(":");
+ if(parts.length!==2)return null;
+
+ const h=Number(parts[0]);
+ const m=Number(parts[1]);
+
+ if(!Number.isInteger(h)||
+    !Number.isInteger(m)||
+    h<0||h>23||m<0||m>59)
+  return null;
+
+ return h*60+m;
+}
+
+function conflicts524(date,time,duration){
+ const start=minutes524(time);
+ if(start===null)return [];
+
+ const end=start+duration;
+
+ return getData("agenda50").filter(item=>{
+  if(item.date!==date)return false;
+
+  const otherStart=minutes524(item.time);
+  if(otherStart===null)return false;
+
+  const otherDuration=
+   Number(item.duration)>0?
+   Number(item.duration):60;
+
+  const otherEnd=otherStart+otherDuration;
+
+  return start<otherEnd&&end>otherStart;
+ });
+}
+
+function format524(minutes){
+ const h=Math.floor(minutes/60)%24;
+ const m=minutes%60;
+
+ return String(h).padStart(2,"0")+":"+
+  String(m).padStart(2,"0");
+}
+
+function install524(){
+ if(current!=="assistente")return;
+
+ const panel=document.getElementById("zeroCreate523");
+ if(!panel||panel.dataset.conflicts524==="yes")return;
+
+ panel.dataset.conflicts524="yes";
+
+ /*
+  Interceta a confirmação da v5.2.3
+  antes de permitir guardar na agenda.
+ */
+ panel.addEventListener("click",function(event){
+  const button=event.target.closest("button");
+
+  if(!button||
+     !button.textContent.includes("Confirmar e guardar"))
+   return;
+
+  const preview=button.closest(".subpanel");
+  if(!preview)return;
+
+  const inputs=preview.querySelectorAll("input");
+
+  if(inputs.length<4)return;
+
+  const title=inputs[0].value.trim();
+  const date=inputs[1].value;
+  const time=inputs[2].value;
+  const duration=Number(inputs[3].value);
+
+  if(!title||!date||!time||
+     !Number.isInteger(duration)||
+     duration<=0)return;
+
+  const conflicts=conflicts524(date,time,duration);
+
+  if(!conflicts.length)return;
+
+  /*
+   Impede a gravação original até existir
+   confirmação expressa do utilizador.
+  */
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  const descriptions=conflicts.map(item=>{
+   const start=minutes524(item.time);
+   const duration=
+    Number(item.duration)>0?
+    Number(item.duration):60;
+
+   return "• "+item.title+
+    "\n  "+item.time+"–"+
+    format524(start+duration);
+  }).join("\n\n");
+
+  const message=
+   "⚠️ CONFLITO DE HORÁRIO\n\n"+
+   "A marcação que estás a criar:\n"+
+   title+"\n"+
+   time+"–"+
+   format524(minutes524(time)+duration)+
+   "\n\nJá existe:\n\n"+
+   descriptions+
+   "\n\nQueres guardar mesmo assim?"+
+   "\n\nCancelar = voltar e alterar a hora.";
+
+
+  if(window.confirm(message)){
+   /*
+    Autoriza apenas esta confirmação.
+    O código original faz a gravação.
+   */
+   button.dataset.approved524="yes";
+
+   button.click();
+
+   delete button.dataset.approved524;
+  }
+
+ },true);
+
+ /*
+  Evita que a segunda confirmação
+  volte a abrir o mesmo aviso.
+ */
+ panel.addEventListener("click",function(event){
+  const button=event.target.closest("button");
+
+  if(button&&
+     button.dataset.approved524==="yes"){
+   event.stopImmediatePropagation();
+
+   /*
+    O clique autorizado é reenviado
+    diretamente ao botão original.
+   */
+   const clone=new MouseEvent("click",{
+    bubbles:false,
+    cancelable:true
+   });
+
+   button.dispatchEvent(clone);
+  }
+ },true);
+}
+
+show=function(k){
+ previousShow524(k);
+
+ if(k==="assistente"){
+  install524();
+ }
+};
+
+const subtitle=document.querySelector("header small");
+
+if(subtitle){
+ subtitle.textContent=
+  "O teu centro de controlo pessoal · v5.2.4";
+}
+
+})();
+
 </script>
 </body>
 </html>
