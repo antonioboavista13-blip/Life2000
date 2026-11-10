@@ -4833,7 +4833,232 @@ if(subtitle51){
 }
 stats();
 })();
+/* ZERO — IMPORTAR MODELOS DE TREINO JSON */
+(function () {
+"use strict";
 
+const previousShowImport = show;
+
+function openImportTreino() {
+  const area = $("formArea");
+
+  const existing = document.getElementById(
+    "zeroImportTreinoPanel"
+  );
+
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const panel = el("div");
+  panel.id = "zeroImportTreinoPanel";
+  panel.className = "subpanel";
+
+  panel.appendChild(
+    el("h3", "📥 Importar treino JSON")
+  );
+
+  panel.appendChild(
+    el("p",
+      "Cola aqui o JSON dos teus planos. " +
+      "Os novos modelos serão acrescentados " +
+      "sem apagar os existentes."
+    )
+  );
+
+  const input = document.createElement("textarea");
+
+  input.placeholder =
+    "Cola aqui o código JSON...";
+
+  input.rows = 12;
+  input.style.width = "100%";
+  input.style.boxSizing = "border-box";
+  input.style.fontSize = "14px";
+
+  panel.appendChild(input);
+
+  const status = el("p", "");
+  panel.appendChild(status);
+
+  btn(panel, "Importar treinos", function () {
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(input.value.trim());
+    } catch (error) {
+      status.textContent =
+        "❌ JSON inválido. Verifica se copiaste tudo.";
+      return;
+    }
+
+    let incoming;
+
+    if (Array.isArray(parsed)) {
+      incoming = parsed;
+    } else if (
+      parsed &&
+      parsed.data &&
+      Array.isArray(parsed.data.modelosTreino)
+    ) {
+      incoming = parsed.data.modelosTreino;
+    } else if (
+      parsed &&
+      Array.isArray(parsed.modelosTreino)
+    ) {
+      incoming = parsed.modelosTreino;
+    } else if (
+      parsed &&
+      typeof parsed.titulo === "string"
+    ) {
+      incoming = [parsed];
+    } else {
+      status.textContent =
+        "❌ Formato de treino incompatível.";
+      return;
+    }
+
+    if (!incoming.length) {
+      status.textContent =
+        "❌ Não foram encontrados treinos.";
+      return;
+    }
+
+    const valid = incoming.every(function (m) {
+      return (
+        m &&
+        typeof m.titulo === "string" &&
+        m.titulo.trim() &&
+        Array.isArray(m.blocos) &&
+        m.blocos.length > 0 &&
+        m.blocos.every(function (b) {
+          return (
+            b &&
+            typeof b.nome === "string" &&
+            Array.isArray(b.itens) &&
+            b.itens.length > 0 &&
+            b.itens.every(function (i) {
+              return (
+                i &&
+                typeof i.nome === "string" &&
+                i.nome.trim()
+              );
+            })
+          );
+        })
+      );
+    });
+
+    if (!valid) {
+      status.textContent =
+        "❌ Existem treinos com dados incompletos.";
+      return;
+    }
+
+    const names = incoming.map(function (m) {
+      return "• " + m.titulo;
+    }).join("\n");
+
+    if (!confirm(
+      "Importar " + incoming.length +
+      " modelo(s) de treino?\n\n" +
+      names +
+      "\n\nOs modelos existentes serão mantidos."
+    )) {
+      return;
+    }
+
+    const all = getData("modelosTreino");
+
+    const normalize = function (value) {
+      return value == null ? "" : String(value);
+    };
+
+    const newModels = incoming.map(function (m) {
+      return {
+        id: uid(),
+        titulo: m.titulo.trim(),
+        conteudo: normalize(m.conteudo),
+        estruturado: true,
+
+        blocos: m.blocos.map(function (b) {
+          return {
+            nome: normalize(b.nome),
+
+            itens: b.itens.map(function (i) {
+              return {
+                nome: normalize(i.nome),
+                series: normalize(i.series),
+                reps: normalize(i.reps),
+                carga: normalize(i.carga),
+                descanso: normalize(i.descanso),
+                obs: normalize(i.obs)
+              };
+            })
+          };
+        })
+      };
+    });
+
+    const updated = all.concat(newModels);
+
+    if (saveData("modelosTreino", updated)) {
+      alert(
+        "✅ " + newModels.length +
+        " treino(s) importado(s) com sucesso!"
+      );
+
+      show("treinos");
+    } else {
+      status.textContent =
+        "❌ Não foi possível guardar os treinos.";
+    }
+  });
+
+  btn(panel, "Cancelar", function () {
+    panel.remove();
+  }, "secondary");
+
+  area.prepend(panel);
+
+  panel.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+show = function (k) {
+
+  previousShowImport(k);
+
+  if (k !== "treinos") return;
+
+  const area = $("formArea");
+
+  if (!area) return;
+
+  if (
+    document.getElementById(
+      "zeroImportTreinoButton"
+    )
+  ) return;
+
+  const bar = el("div");
+  bar.id = "zeroImportTreinoButton";
+  bar.className = "subpanel";
+
+  btn(
+    bar,
+    "📥 Importar treino JSON",
+    openImportTreino
+  );
+
+  area.prepend(bar);
+};
+
+})();
 </script>
 </body>
 </html>
