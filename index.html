@@ -5059,6 +5059,502 @@ show = function (k) {
 };
 
 })();
+  
+/* ZERO — PARTILHA DE FICHA INDIVIDUAL */
+(function(){
+"use strict";
+
+const previousProfileShare = profile;
+
+function escapeShare(value){
+ return String(value ?? "").replace(
+  /[&<>"']/g,
+  c => ({
+   "&":"&amp;",
+   "<":"&lt;",
+   ">":"&gt;",
+   '"':"&quot;",
+   "'":"&#39;"
+  })[c]
+ );
+}
+
+function infoShare(label,value,unit=""){
+ if(value == null || String(value).trim()===""){
+  return "";
+ }
+ return "<p><strong>"+
+ escapeShare(label)+":</strong> "+
+ escapeShare(value)+escapeShare(unit)+
+ "</p>";
+}
+
+function plansShare(plans,type){
+
+ if(!plans || !plans.length){
+  return "<p>Sem planos registados.</p>";
+ }
+
+ return plans.map(plan=>{
+
+  let html="<article><h3>"+
+   escapeShare(plan.titulo || "Plano")+
+   "</h3>";
+
+  if(plan.conteudo){
+   html+="<p class='description'>"+
+    escapeShare(plan.conteudo)+"</p>";
+  }
+
+  (plan.blocos || []).forEach(block=>{
+
+   html+="<div class='block'><h4>"+
+    escapeShare(block.nome || "Bloco")+
+    "</h4>";
+
+   (block.itens || []).forEach(item=>{
+
+    if(!item.nome)return;
+
+    html+="<div class='exercise'><b>"+
+     escapeShare(item.nome)+"</b>";
+
+    if(type==="treino"){
+
+     html+=infoShare("Séries",item.series);
+     html+=infoShare("Repetições / duração",item.reps);
+     html+=infoShare("Carga",item.carga);
+     html+=infoShare("Descanso",item.descanso);
+
+    }else{
+
+     html+=infoShare("Quantidade",item.quantidade);
+     html+=infoShare("Calorias",item.calorias," kcal");
+     html+=infoShare("Proteínas",item.proteinas," g");
+     html+=infoShare("Hidratos",item.hidratos," g");
+     html+=infoShare("Gorduras",item.gorduras," g");
+
+    }
+
+    html+=infoShare("Observações",item.obs);
+    html+="</div>";
+
+   });
+
+   html+="</div>";
+
+  });
+
+  html+="</article>";
+
+  return html;
+
+ }).join("");
+}
+
+function createShareFile(student,options){
+
+ let content="";
+
+ if(options.dados){
+
+  content+="<section><h2>Dados do aluno</h2>";
+
+  content+=infoShare("Idade",student.idade," anos");
+  content+=infoShare("Altura",student.altura," cm");
+  content+=infoShare("Peso",student.peso," kg");
+  content+=infoShare("Objetivo",student.objetivo);
+
+  content+="</section>";
+
+ }
+
+ if(options.treino){
+
+  content+="<section><h2>Planos de treino</h2>"+
+   plansShare(student.planosTreino,"treino")+
+   "</section>";
+
+ }
+
+ if(options.nutricao){
+
+  content+="<section><h2>Planos alimentares</h2>"+
+   plansShare(student.planosAlimentares,"nutricao")+
+   "</section>";
+
+ }
+
+ if(options.obs && student.obs){
+
+  content+="<section><h2>Observações</h2>"+
+   "<p class='description'>"+
+   escapeShare(student.obs)+
+   "</p></section>";
+
+ }
+
+ const html=`<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+<title>ZERO - Ficha individual</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ background:#25272c;
+ color:#f5f5f5;
+ font-family:-apple-system,BlinkMacSystemFont,
+ Arial,sans-serif;
+ line-height:1.5;
+}
+
+header{
+ background:#191a1e;
+ padding:28px 22px;
+ border-bottom:2px solid #b94b50;
+}
+
+header h1{
+ margin:0;
+ font-size:34px;
+ font-weight:900;
+ letter-spacing:4px;
+}
+
+header p{
+ margin:5px 0;
+ color:#bfc0c5;
+ font-size:13px;
+}
+
+main{
+ max-width:800px;
+ margin:auto;
+ padding:20px;
+}
+
+h2{
+ font-size:21px;
+ margin-top:0;
+}
+
+h3{
+ font-size:18px;
+ color:#fff;
+}
+
+h4{
+ color:#e38b90;
+ margin:5px 0 12px;
+}
+
+section{
+ background:#303238;
+ border:1px solid #484b52;
+ border-radius:16px;
+ padding:18px;
+ margin:16px 0;
+}
+
+article{
+ border-top:1px solid #55575d;
+ margin-top:15px;
+ padding-top:10px;
+}
+
+.block{
+ background:#24262b;
+ border-radius:12px;
+ padding:14px;
+ margin:12px 0;
+}
+
+.exercise{
+ padding:12px 0;
+ border-bottom:1px solid #42444b;
+}
+
+.exercise:last-child{
+ border-bottom:0;
+}
+
+.exercise b{
+ font-size:16px;
+ color:#fff;
+}
+
+p{
+ font-size:14px;
+ margin:6px 0;
+ overflow-wrap:anywhere;
+}
+
+.description{
+ white-space:pre-wrap;
+}
+
+.tag{
+ display:inline-block;
+ background:#393b42;
+ color:#ddd;
+ border-radius:20px;
+ padding:6px 12px;
+ font-size:12px;
+}
+
+footer{
+ text-align:center;
+ color:#aaa;
+ padding:20px;
+ font-size:12px;
+}
+</style>
+
+</head>
+<body>
+
+<header>
+<h1>ZERO</h1>
+<p>ARROW BOXING GONDOMAR</p>
+</header>
+
+<main>
+
+<h2>${escapeShare(student.nome)}</h2>
+
+<span class="tag">Ficha individual · Consulta</span>
+
+<p style="color:#aaa">
+Atualizada em ${
+ new Date().toLocaleDateString("pt-PT")
+}
+</p>
+
+${content}
+
+</main>
+
+<footer>
+ZERO · Ficha de acompanhamento individual
+</footer>
+
+</body>
+</html>`;
+
+ const safeName=String(student.nome || "aluno")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g,"")
+  .replace(/[^a-zA-Z0-9_-]+/g,"-")
+  .slice(0,60);
+
+ return new File(
+  [html],
+  "ZERO-"+safeName+".html",
+  {type:"text/html"}
+ );
+
+}
+
+function downloadShare(file){
+
+ const url=URL.createObjectURL(file);
+ const link=el("a");
+
+ link.href=url;
+ link.download=file.name;
+
+ document.body.appendChild(link);
+ link.click();
+ link.remove();
+
+ setTimeout(()=>{
+  URL.revokeObjectURL(url);
+ },5000);
+
+}
+
+function openShare(id){
+
+ const student=getData("alunos")
+  .find(s=>s.id===id);
+
+ if(!student)return;
+
+ const old=document.getElementById(
+  "zeroSharePanel"
+ );
+
+ if(old)old.remove();
+
+ const panel=el("div");
+
+ panel.id="zeroSharePanel";
+ panel.className="subpanel";
+
+ panel.appendChild(el(
+  "h3",
+  "📤 Partilhar ficha"
+ ));
+
+ panel.appendChild(el(
+  "p",
+  "Escolhe o conteúdo que queres enviar."
+ ));
+
+ const options={};
+
+ function check(key,label,checked){
+
+  const row=el("label");
+
+  row.style.display="flex";
+  row.style.alignItems="center";
+  row.style.gap="12px";
+  row.style.padding="8px 0";
+
+  const input=el("input");
+
+  input.type="checkbox";
+  input.checked=checked;
+  input.style.width="22px";
+  input.style.height="22px";
+  input.style.margin="0";
+
+  row.appendChild(input);
+  row.appendChild(
+   document.createTextNode(label)
+  );
+
+  panel.appendChild(row);
+
+  options[key]=input;
+
+ }
+
+ check("dados","Dados do aluno",false);
+ check("treino","Planos de treino",true);
+ check("nutricao","Planos alimentares",true);
+ check("obs","Observações da ficha",false);
+
+ panel.appendChild(el(
+  "small",
+  "As notas privadas, pagamentos, histórico e restantes alunos nunca são incluídos."
+ ));
+
+ function getFile(){
+
+  const selected={};
+
+  Object.keys(options).forEach(key=>{
+   selected[key]=options[key].checked;
+  });
+
+  if(!Object.values(selected).some(Boolean)){
+   alert("Seleciona pelo menos uma opção.");
+   return null;
+  }
+
+  return createShareFile(student,selected);
+
+ }
+
+ const ac=actions(panel);
+
+ btn(ac,"📤 Partilhar",async()=>{
+
+  const file=getFile();
+
+  if(!file)return;
+
+  if(navigator.share &&
+     navigator.canShare &&
+     navigator.canShare({files:[file]})){
+
+   try{
+
+    await navigator.share({
+     files:[file],
+     title:"ZERO - "+student.nome
+    });
+
+   }catch(error){
+
+    if(error.name!=="AbortError"){
+     downloadShare(file);
+    }
+
+   }
+
+  }else{
+
+   downloadShare(file);
+
+   alert(
+    "Ficha criada. Podes enviá-la através da aplicação Ficheiros."
+   );
+
+  }
+
+ });
+
+ btn(ac,"Guardar ficheiro",()=>{
+
+  const file=getFile();
+
+  if(file)downloadShare(file);
+
+ },"secondary");
+
+ btn(ac,"Cancelar",()=>{
+
+  panel.remove();
+
+ },"secondary");
+
+ $("formArea").appendChild(panel);
+
+ panel.scrollIntoView({
+  behavior:"smooth",
+  block:"start"
+ });
+
+}
+
+profile=function(id){
+
+ previousProfileShare(id);
+
+ const student=getData("alunos")
+  .find(s=>s.id===id);
+
+ if(!student)return;
+
+ const area=$("formArea");
+
+ if(!area)return;
+
+ const bar=el("div");
+
+ bar.className="subpanel";
+
+ btn(bar,"📤 Partilhar ficha",()=>{
+
+  openShare(id);
+
+ });
+
+ area.appendChild(bar);
+
+};
+
+})();
+
 </script>
 </body>
 </html>
