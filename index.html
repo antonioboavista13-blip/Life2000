@@ -3770,9 +3770,7 @@ function finance49(){
     const all=getData(DUES);
     const entry=all.find(z=>z.id===x.id);
     if(!entry)return;
-    entry.pago=!entry.pago;
-    entry.dataLiquidacao=entry.pago?today49():'';
-    if(saveData(DUES,all))render();
+    if(window.zeroPTTogglePayment(entry.id))render();
    },'secondary');
    btn(ac,'Eliminar',()=>{
     if(!confirm('Eliminar esta mensalidade?'))return;
@@ -5553,6 +5551,80 @@ profile=function(id){
 
 };
 
+})();
+
+/* ZERO v5.3 — Mensalidades PT e atribuição rápida de modelos */
+(function(){
+'use strict';
+const D='mensalidades49';
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const money=v=>Number(v||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR'});
+const copy=x=>JSON.parse(JSON.stringify(x));
+function write(values){
+ const before={};
+ try{for(const k of Object.keys(values)){before[k]=localStorage.getItem('life2000_'+k);}for(const [k,v] of Object.entries(values))localStorage.setItem('life2000_'+k,JSON.stringify(v));return true;}
+ catch(e){for(const [k,v] of Object.entries(before)){try{if(v===null)localStorage.removeItem('life2000_'+k);else localStorage.setItem('life2000_'+k,v);}catch{}}alert('Não foi possível guardar. Os dados anteriores foram preservados.');return false;}
+}
+window.zeroPTTogglePayment=function(id){
+ const dues=getData(D),entry=dues.find(x=>x.id===id);if(!entry)return false;
+ const people=getData('alunos'),s=people.find(x=>x.id===entry.alunoId);if(!s)return false;
+ if(!confirm(entry.pago?'Anular liquidação e o recebimento associado?':'Confirmar recebimento de '+money(entry.valor)+' hoje?'))return false;
+ s.pagamentos=s.pagamentos||[];
+ if(entry.pago){s.pagamentos=s.pagamentos.filter(p=>p.id!==entry.pagamentoId&&p.mensalidadeId!==entry.id);entry.pago=false;entry.dataLiquidacao='';delete entry.pagamentoId;}
+ else{const pid=uid();s.pagamentos.unshift({id:pid,data:today(),valor:Number(entry.valor),descricao:'PT — '+entry.mes,metodo:'Outro',mensalidadeId:entry.id});entry.pago=true;entry.dataLiquidacao=today();entry.pagamentoId=pid;}
+ return write({alunos:people,[D]:dues});
+};
+function generate(){
+ const month=today().slice(0,7),all=getData(D);let changed=false;
+ getData('alunos').forEach(s=>{const p=s.ptMensal;if(!p?.ativo||!p.inicio||p.inicio>month||all.some(x=>x.alunoId===s.id&&x.mes===month))return;
+ const covered=p.pagoAte&&p.pagoAte>=month+'-01';
+ all.push({id:uid(),alunoId:s.id,mes:month,valor:covered?0:Number(p.valor),vencimento:month+'-'+String(p.dia||6).padStart(2,'0'),pago:!!covered||Number(p.valor)===0,dataLiquidacao:'',ptAutomatico:true,cobertoAte:covered?p.pagoAte:''});changed=true;});
+ if(changed)saveData(D,all);
+}
+function panel(parent,title){const p=el('div');p.className='subpanel';p.appendChild(el('h3',title));parent.appendChild(p);return p;}
+function select(parent,label,options,value){parent.appendChild(el('label',label));const s=el('select');options.forEach(([v,t])=>{const o=el('option',t);o.value=v;s.appendChild(o);});s.value=value;parent.appendChild(s);return s;}
+function pt(id){
+ clear();const student=getData('alunos').find(s=>s.id===id);if(!student)return students();
+ const a=$('formArea'),p=student.ptMensal||{};btn(a,'← Ficha do aluno',()=>profile(id),'secondary');a.appendChild(el('h3','Mensalidade PT · '+student.nome));
+ const active=select(a,'Mensalidade automática',[['sim','Ativa'],['nao','Desativada']],p.ativo?'sim':'nao');
+ const rate=select(a,'Plano PT',[['140','1 vez / semana — 140 €'],['260','2 vezes / semana — 260 €'],['360','3 vezes / semana — 360 €'],['custom','Valor personalizado']],['140','260','360'].includes(String(p.valor))?String(p.valor):'custom');
+ const amount=field(a,'Valor mensal (€)',p.valor??140,'number');amount.min='0';amount.step='0.01';rate.onchange=()=>{if(rate.value!=='custom')amount.value=rate.value;};
+ const start=field(a,'Primeiro mês a cobrar',p.inicio||today().slice(0,7),'month');
+ const day=field(a,'Dia de vencimento',p.dia||6,'number');day.min='1';day.max='28';
+ const covered=field(a,'Já pago até (opcional)',p.pagoAte||'','date');
+ a.appendChild(el('p','Gera uma mensalidade por aluno no mês atual quando abres o ZERO. Meses anteriores não são cobrados retroativamente. A data “já pago até” cobre o mês em que termina.'));
+ btn(a,'Guardar mensalidade PT',()=>{
+ const value=Number(amount.value),due=Number(day.value);
+ if(!amount.value.trim()||!Number.isFinite(value)||value<0||!start.value||!Number.isInteger(due)||due<1||due>28)return alert('Verifica o valor, o mês inicial e o dia (1 a 28).');
+ const all=getData('alunos'),s=all.find(x=>x.id===id);if(!s)return;
+ s.ptMensal={ativo:active.value==='sim',valor:value,dia:due,inicio:start.value,pagoAte:covered.value};
+ if(saveData('alunos',all)){generate();pt(id);}
+ });
+ const list=$('items');list.appendChild(el('h3','Mensalidades do aluno'));
+ const dues=getData(D).filter(x=>x.alunoId===id).sort((a,b)=>b.mes.localeCompare(a.mes));
+ if(!dues.length)list.appendChild(el('p','Sem mensalidades geradas. Ativa a mensalidade e guarda.'));
+ dues.forEach(x=>{const box=panel(list,x.mes+' · '+money(x.valor));box.appendChild(el('p',x.pago?'Liquidada':(x.vencimento<today()?'Em atraso':'Pendente')));box.appendChild(el('p','Vencimento: '+x.vencimento));if(x.cobertoAte)box.appendChild(el('p','Abrangida pelo pagamento até '+x.cobertoAte));
+ if(!x.pago)btn(box,'Registar recebimento',()=>{
+ const received=field(box,'Data do recebimento',today(),'date');
+ const method=select(box,'Método',[['MB Way','MB Way'],['Dinheiro','Dinheiro'],['Transferência','Transferência'],['Outro','Outro']],'MB Way');
+ btn(box,'Confirmar recebimento',()=>{if(!received.value)return alert('Indica a data.');const all=getData(D),entry=all.find(z=>z.id===x.id);if(!entry||entry.pago)return;const people=getData('alunos'),s=people.find(z=>z.id===id);if(!s)return;
+ entry.pago=true;entry.dataLiquidacao=received.value;const pid=uid();entry.pagamentoId=pid;s.pagamentos=s.pagamentos||[];s.pagamentos.unshift({id:pid,data:received.value,valor:Number(entry.valor),descricao:'PT — '+entry.mes,metodo:method.value,mensalidadeId:entry.id});
+ if(write({alunos:people,[D]:all}))pt(id);
+ });
+ },'secondary');
+ });
+}
+const presets=[
+ ['zero53-forca','Força geral · corpo inteiro','Ajustar cargas ao aluno e manter técnica controlada.',[['Aquecimento','Mobilidade e cardio leve','1','8 min',''],['Força','Agachamento','3','8','90 s'],['Força','Supino com halteres','3','8','90 s'],['Força','Remada','3','10','60 s'],['Força','Peso morto romeno','3','8','90 s'],['Core','Prancha','3','30 s','30 s']]],
+ ['zero53-funcional','Funcional · circuito 30 minutos','Adaptar os exercícios e a intensidade ao nível do aluno.',[['Aquecimento','Mobilidade e marcha rápida','1','5 min',''],['Circuito','Agachamento ao banco','4','40 s','20 s'],['Circuito','Remada com elástico','4','40 s','20 s'],['Circuito','Step-up baixo','4','40 s','20 s'],['Circuito','Flexões inclinadas','4','40 s','20 s'],['Circuito','Marcha rápida / bicicleta','4','40 s','20 s'],['Retorno à calma','Caminhada e mobilidade','1','5 min','']]],
+ ['zero53-cardio','Cardio · intervalado e contínuo','Escolher corrida, bicicleta, remo ou ski conforme o aluno. Esforço controlado.',[['Aquecimento','Modalidade escolhida','1','8 min',''],['Intervalado','Ritmo forte controlado','6','1 min','1 min suave'],['Contínuo','Ritmo confortável','1','15 min',''],['Retorno à calma','Ritmo suave','1','5 min','']]]
+].map(([id,titulo,conteudo,rows])=>({id,titulo,conteudo,estruturado:true,blocos:rows.map(([nome,exercise,series,reps,descanso])=>({nome,itens:[{nome:exercise,series,reps,descanso,carga:'Individualizar',obs:conteudo}]}))}));
+function installModels(){const all=getData('modelosTreino');presets.forEach(p=>{if(!all.some(x=>x.id===p.id))all.push(copy(p));});return saveData('modelosTreino',all);}
+function assign(id){clear();const a=$('formArea');btn(a,'← Ficha do aluno',()=>profile(id),'secondary');a.appendChild(el('h3','Escolher plano de treino'));const all=getData('modelosTreino');if(!all.length)a.appendChild(el('p','Adiciona os planos base no separador Treinos ou cria um modelo.'));all.forEach(m=>{const box=panel(a,m.titulo);box.appendChild(el('p',m.conteudo||''));btn(box,'Escolher e adaptar',()=>planForm(id,'planosTreino',null,copy(m)));});}
+const oldProfile=profile;profile=function(id){oldProfile(id);if(!getData('alunos').some(s=>s.id===id))return;const box=panel($('formArea'),'PT e planos');btn(box,'💶 Mensalidade PT',()=>pt(id));btn(box,'🥊 Atribuir plano de treino',()=>assign(id),'secondary');};
+const oldShow=show;show=function(k){generate();oldShow(k);if(k==='treinos'){const box=panel($('formArea'),'Planos prontos');btn(box,'Adicionar 3 planos base',()=>{if(installModels())show('treinos');});box.appendChild(el('p','Força geral, funcional e cardio. Podes editar e adaptar cada modelo antes de o guardar no aluno.'));}};
+if(!keys.includes(D))keys.push(D);
+generate();const subtitle=document.querySelector('header small');if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.3';
 })();
 
 </script>
