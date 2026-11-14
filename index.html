@@ -3618,6 +3618,8 @@ if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v4.8';
 
 const DUES='mensalidades49';
 const EXPENSES='despesas49';
+const SALARY='ordenadosEmpresa';
+if(!keys.includes(SALARY))keys.push(SALARY);
 const oldShow49=show;
 const oldSettings49=settings;
 
@@ -3684,7 +3686,31 @@ function payments49(){
    });
   });
  });
+ getData(SALARY).forEach(p=>{
+  const value=Number(p.valor);
+  if(!Number.isFinite(value)||value<0)return;
+  result.push({...p,aluno:'Ordenado da empresa',valor:value});
+ });
  return result;
+}
+function salaryForm49(id=null){
+ clear();const a=$('formArea');
+ const entry=getData(SALARY).find(x=>x.id===id)||{};
+ btn(a,'← Finanças',finance49,'secondary');
+ a.appendChild(el('h3',id?'Editar ordenado da empresa':'Registar ordenado da empresa'));
+ a.appendChild(el('p','Preenche o valor líquido recebido. Conta nas receitas do mês da data de recebimento.'));
+ const date=field(a,'Data de recebimento',entry.data||today49(),'date');
+ const amount=field(a,'Valor recebido (€)',entry.valor??'','text');amount.inputMode='decimal';
+ const description=field(a,'Descrição / observações',entry.descricao||'Ordenado da empresa');
+ btn(a,'Guardar ordenado',()=>{
+  if(!date.value||!valid49(amount.value)||number49(amount.value)<=0)return alert('Preenche a data e um valor superior a zero.');
+  const all=getData(SALARY);
+  const obj={id:id||uid(),data:date.value,valor:number49(amount.value),descricao:description.value.trim()||'Ordenado da empresa',metodo:'Transferência'};
+  if(!id&&all.some(x=>x.data.slice(0,7)===date.value.slice(0,7))&&!confirm('Já existe um ordenado neste mês. Queres acrescentar outro recebimento?'))return;
+  const i=all.findIndex(x=>x.id===id);if(i>=0)all[i]=obj;else all.push(obj);
+  if(saveData(SALARY,all))finance49();
+ });
+ btn(a,'Cancelar',finance49,'secondary');
 }
 function finance49(){
  current='financeiro';
@@ -3702,10 +3728,12 @@ function finance49(){
  const controls=actions(a);
  btn(controls,'+ Mensalidade',()=>dueForm49());
  btn(controls,'+ Despesa',()=>expenseForm49());
+ btn(controls,'+ Ordenado da empresa',()=>salaryForm49());
  btn(controls,'Ver pagamentos',()=>paymentList49(),'secondary');
 
  const dueList=box49(list,'Mensalidades');
  const expenseList=box49(list,'Despesas');
+ const salaryList=box49(list,'Ordenado da empresa');
 
  function render(){
   const selected=month.value||month49();
@@ -3780,6 +3808,14 @@ function finance49(){
    dueList.appendChild(b);
   });
 
+  salaryList.replaceChildren();salaryList.appendChild(el('h3','Ordenado da empresa'));
+  const salaries=getData(SALARY).filter(x=>String(x.data||'').startsWith(selected));
+  if(!salaries.length)salaryList.appendChild(el('p','Sem ordenado registado neste mês.'));
+  salaries.forEach(x=>{
+   const b=box49(salaryList,euro49(x.valor));info49(b,'Recebido em',x.data);info49(b,'Descrição',x.descricao||'Ordenado da empresa');
+   btn(b,'Editar ordenado',()=>salaryForm49(x.id),'secondary');
+   btn(b,'Eliminar ordenado',()=>{if(confirm('Eliminar este ordenado?')&&saveData(SALARY,getData(SALARY).filter(z=>z.id!==x.id)))render();},'danger');
+  });
   expenseList.replaceChildren();
   expenseList.appendChild(el('h3','Despesas'));
   if(!expenses.length){
@@ -3887,7 +3923,7 @@ function paymentList49(){
  btn(a,'← Finanças',finance49,'secondary');
  a.appendChild(el('h3','Pagamentos recebidos'));
  a.appendChild(el('p',
-  'Estes pagamentos vêm das fichas dos alunos.'
+  'Recebimentos das fichas dos alunos e ordenados da empresa.'
  ));
  const month=field(a,'Mês',month49(),'month');
  const list=$('items');
@@ -4436,7 +4472,7 @@ settings=function(){
     'agenda','agenda50','alunos','treinos','nutricao','notas',
     'modelosTreino','modelosAlimentares',
     'bibliotecaAlimentos','bibliotecaExercicios',
-    'mensalidades49','despesas49'
+    'mensalidades49','despesas49','ordenadosEmpresa'
    ].forEach(k=>data.data[k]=getData(k));
    const blob=new Blob([JSON.stringify(data,null,2)],{
     type:'application/json'
@@ -4464,7 +4500,7 @@ settings=function(){
     'agenda','agenda50','alunos','treinos','nutricao','notas',
     'modelosTreino','modelosAlimentares',
     'bibliotecaAlimentos','bibliotecaExercicios',
-    'mensalidades49','despesas49'
+    'mensalidades49','despesas49','ordenadosEmpresa'
    ];
    if(backup.app!=='LIFE 2000'||!backup.data||
     typeof backup.data!=='object'||Array.isArray(backup.data))
@@ -5629,7 +5665,7 @@ function assign(id){clear();const a=$('formArea');btn(a,'← Ficha do aluno',()=
 const oldProfile=profile;profile=function(id){oldProfile(id);if(!getData('alunos').some(s=>s.id===id))return;const box=panel($('formArea'),'PT e planos');btn(box,'💶 Mensalidade PT',()=>pt(id));btn(box,'🥊 Atribuir plano de treino',()=>assign(id),'secondary');};
 const oldShow=show;show=function(k){generate();oldShow(k);if(k==='treinos'){const box=panel($('formArea'),'Planos prontos');btn(box,'Adicionar 3 planos base',()=>{if(installModels())show('treinos');});box.appendChild(el('p','Força geral, funcional e cardio. Podes editar e adaptar cada modelo antes de o guardar no aluno.'));}};
 if(!keys.includes(D))keys.push(D);
-generate();const subtitle=document.querySelector('header small');if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.3.1';
+generate();const subtitle=document.querySelector('header small');if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.3.2';
 })();
 
 </script>
