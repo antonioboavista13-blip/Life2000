@@ -5587,7 +5587,7 @@ function pt(id){
  clear();const student=getData('alunos').find(s=>s.id===id);if(!student)return students();
  const a=$('formArea'),p=student.ptMensal||{};btn(a,'← Ficha do aluno',()=>profile(id),'secondary');a.appendChild(el('h3','Mensalidade PT · '+student.nome));
  const active=select(a,'Mensalidade automática',[['sim','Ativa'],['nao','Desativada']],p.ativo?'sim':'nao');
- const rate=select(a,'Plano PT',[['140','1 vez / semana — 140 €'],['260','2 vezes / semana — 260 €'],['360','3 vezes / semana — 360 €'],['custom','Valor personalizado']],['140','260','360'].includes(String(p.valor))?String(p.valor):'custom');
+ const rate=select(a,'Plano PT',[['140','1 vez / semana — 140 €'],['260','2 vezes / semana — 260 €'],['360','3 vezes / semana — 360 €'],['custom','Valor personalizado']],['140','260','360'].includes(String(p.valor))?String(p.valor):(p.valor==null?'140':'custom'));
  const amount=field(a,'Valor mensal (€)',p.valor??140,'number');amount.min='0';amount.step='0.01';rate.onchange=()=>{if(rate.value!=='custom')amount.value=rate.value;};
  const start=field(a,'Primeiro mês a cobrar',p.inicio||today().slice(0,7),'month');
  const day=field(a,'Dia de vencimento',p.dia||6,'number');day.min='1';day.max='28';
@@ -5598,7 +5598,12 @@ function pt(id){
  if(!amount.value.trim()||!Number.isFinite(value)||value<0||!start.value||!Number.isInteger(due)||due<1||due>28)return alert('Verifica o valor, o mês inicial e o dia (1 a 28).');
  const all=getData('alunos'),s=all.find(x=>x.id===id);if(!s)return;
  s.ptMensal={ativo:active.value==='sim',valor:value,dia:due,inicio:start.value,pagoAte:covered.value};
- if(saveData('alunos',all)){generate();pt(id);}
+ const dues=getData(D),month=today().slice(0,7);
+ const pending=dues.filter(x=>x.alunoId===id&&!x.pago&&x.mes>=month);
+ if(pending.length&&confirm('Atualizar também as '+pending.length+' mensalidade(s) pendente(s) deste mês e dos próximos? Os recebimentos já registados serão mantidos.')){
+  pending.forEach(x=>{const paid=covered.value&&covered.value>=x.mes+'-01';x.valor=paid?0:value;x.vencimento=x.mes+'-'+String(due).padStart(2,'0');x.pago=!!paid||value===0;x.cobertoAte=paid?covered.value:'';});
+ }
+ if(write({alunos:all,[D]:dues})){generate();pt(id);}
  });
  const list=$('items');list.appendChild(el('h3','Mensalidades do aluno'));
  const dues=getData(D).filter(x=>x.alunoId===id).sort((a,b)=>b.mes.localeCompare(a.mes));
@@ -5624,7 +5629,7 @@ function assign(id){clear();const a=$('formArea');btn(a,'← Ficha do aluno',()=
 const oldProfile=profile;profile=function(id){oldProfile(id);if(!getData('alunos').some(s=>s.id===id))return;const box=panel($('formArea'),'PT e planos');btn(box,'💶 Mensalidade PT',()=>pt(id));btn(box,'🥊 Atribuir plano de treino',()=>assign(id),'secondary');};
 const oldShow=show;show=function(k){generate();oldShow(k);if(k==='treinos'){const box=panel($('formArea'),'Planos prontos');btn(box,'Adicionar 3 planos base',()=>{if(installModels())show('treinos');});box.appendChild(el('p','Força geral, funcional e cardio. Podes editar e adaptar cada modelo antes de o guardar no aluno.'));}};
 if(!keys.includes(D))keys.push(D);
-generate();const subtitle=document.querySelector('header small');if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.3';
+generate();const subtitle=document.querySelector('header small');if(subtitle)subtitle.textContent='O teu centro de controlo pessoal · v5.3.1';
 })();
 
 </script>
